@@ -2,207 +2,157 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b1020" />
   <title>日報ビューア</title>
   <style>
     :root{
-      --bg1:#0b1020;
-      --bg2:#121a33;
-      --card: rgba(255,255,255,.08);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.68);
-      --line: rgba(255,255,255,.14);
-      --shadow: 0 18px 40px rgba(0,0,0,.35);
-      --radius: 18px;
+      --bg1:#0b1020; --bg2:#121a33;
+      --text: rgba(255,255,255,.92); --muted: rgba(255,255,255,.66);
+      --line: rgba(255,255,255,.14); --panel: rgba(255,255,255,.06);
+      --accent1: rgba(124,92,255,.95); --accent2: rgba(36,211,238,.85);
+      --radius: 16px;
+      --playerH: 172px;
     }
     *{box-sizing:border-box}
+    html{-webkit-text-size-adjust:100%}
     body{
       margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
       color:var(--text);
       background:
         radial-gradient(1200px 500px at 20% -10%, rgba(124,92,255,.35), transparent 60%),
         radial-gradient(900px 500px at 90% 10%, rgba(36,211,238,.25), transparent 55%),
         linear-gradient(160deg, var(--bg1), var(--bg2));
+      background-attachment: fixed;
       min-height:100vh;
     }
-    .wrap{max-width:980px;margin:0 auto;padding:20px 16px 44px;}
-    header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:10px 0 18px;}
-    .title{display:flex;gap:12px;align-items:center;}
+    button, select, input{font-family:inherit;color:inherit}
+    button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .wrap{max-width:760px;margin:0 auto;padding:12px 14px calc(var(--playerH) + 28px + env(safe-area-inset-bottom));}
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 12px;}
+    .title{display:flex;gap:10px;align-items:center;min-width:0}
     .logo{
-      width:44px;height:44px;border-radius:14px;
-      background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(36,211,238,.85));
-      box-shadow: 0 10px 24px rgba(124,92,255,.25);
+      width:38px;height:38px;border-radius:12px;flex:0 0 auto;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
       display:grid;place-items:center;font-weight:800;
     }
-    h1{font-size:18px;margin:0;letter-spacing:.02em;}
-    .sub{margin:4px 0 0;font-size:12px;color:var(--muted);}
-    .pill{
-      display:flex;gap:8px;align-items:center;justify-content:space-between;
-      padding:10px 12px;min-width:210px;
-      border:1px solid var(--line);background:rgba(255,255,255,.06);
-      border-radius:999px;backdrop-filter:blur(10px);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    h1{font-size:15px;margin:0;letter-spacing:.02em;line-height:1.3}
+    .status{
+      flex:0 0 auto;max-width:46%;
       font-size:12px;color:var(--muted);
+      padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
-    .pill b{color:var(--text);font-weight:700}
-    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;}
-    @media (max-width:860px){.grid{grid-template-columns:1fr}.pill{min-width:0}}
-    .card{
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.05));
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-      overflow:hidden;
+
+    /* 何を聞くか */
+    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+    .tab{
+      border:1px solid var(--line);background:var(--panel);
+      border-radius:12px;padding:12px 4px;font-size:14px;font-weight:700;cursor:pointer;min-height:48px;
     }
-    .cardHeader{
-      padding:14px 14px 10px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      border-bottom:1px solid var(--line);
-      background:rgba(255,255,255,.04);
+    .tab.on{background:linear-gradient(135deg, rgba(124,92,255,.6), rgba(36,211,238,.42));border-color:rgba(255,255,255,.4)}
+    .panel{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:10px;margin-bottom:10px}
+    .panel[hidden]{display:none}
+    .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    @media (max-width:420px){.chips{grid-template-columns:repeat(2,1fr)}}
+    .chip{
+      border:1px solid var(--line);background:rgba(255,255,255,.05);
+      border-radius:10px;padding:11px 6px;font-size:13px;font-weight:700;cursor:pointer;min-height:46px;
     }
-    .cardHeader h2{margin:0;font-size:14px;letter-spacing:.02em}
-    .badge{
-      font-size:11px;padding:5px 10px;border-radius:999px;
-      border:1px solid var(--line);color:var(--muted);
-      background:rgba(255,255,255,.05);
+    .chip.on{background:rgba(124,92,255,.5);border-color:rgba(255,255,255,.4)}
+    .chip.missing{opacity:.45}
+    .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+    .personRow{display:grid;grid-template-columns:1.4fr 1fr;gap:8px}
+    .field{
+      width:100%;min-height:48px;border:1px solid var(--line);border-radius:10px;
+      background:rgba(0,0,0,.28);padding:8px 10px;font-size:16px;
     }
-    .cardBody{padding:14px;}
-    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    @media (max-width:460px){.btnRow{grid-template-columns:1fr}}
-    .btn{
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      border-radius:14px;padding:12px 12px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
-      transition:transform .08s ease, background .2s ease, border-color .2s ease;
+    select.field option{background:#141b33;color:#fff}
+    .daysBox{display:flex;align-items:center;gap:6px;font-size:15px;white-space:nowrap}
+    .daysBox input{width:100%;min-width:0;text-align:center}
+    .personRow2{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:8px}
+    .go{
+      border:1px solid rgba(255,255,255,.3);border-radius:10px;min-height:48px;font-size:15px;font-weight:700;cursor:pointer;
+      background:linear-gradient(135deg, rgba(124,92,255,.85), rgba(36,211,238,.65));
     }
-    .btn:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22);}
-    .btn:active{transform:translateY(1px) scale(.99);}
-    .btn:disabled{opacity:.5;cursor:not-allowed;}
-    .btn .left{display:flex;gap:10px;align-items:center;min-width:0;}
-    .icon{
-      width:36px;height:36px;border-radius:12px;display:grid;place-items:center;
-      background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
-      flex:0 0 auto;
-    }
-    .label{display:flex;flex-direction:column;gap:3px;min-width:0;}
-    .label strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .label span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .chev{opacity:.75;font-weight:900}
-    .btn.primary{background:linear-gradient(135deg, rgba(124,92,255,.92), rgba(36,211,238,.72));border-color:rgba(255,255,255,.22);}
-    .btn.good{outline:1px solid rgba(34,197,94,.35)}
-    .btn.warn{outline:1px solid rgba(245,158,11,.35)}
-    .viewer{min-height:260px;display:flex;flex-direction:column;gap:10px;}
-    .meta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px;align-items:center;}
-    .dot{width:4px;height:4px;border-radius:999px;background:rgba(255,255,255,.35);}
+    .go:disabled{opacity:.5}
+
+    /* いま流しているもの */
+    .now{margin:2px 2px 8px}
+    .nowTitle{font-size:16px;font-weight:800;line-height:1.35}
+    .nowMeta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45;word-break:break-all}
+
     .content{
-      border:1px solid var(--line);background:rgba(0,0,0,.20);
-      border-radius:14px;padding:12px;line-height:1.7;
-      color:rgba(255,255,255,.90);white-space:pre-wrap;font-size:13px;
+      border:1px solid var(--line);background:rgba(0,0,0,.22);
+      border-radius:var(--radius);padding:12px 12px 16px;line-height:1.85;font-size:15px;
     }
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;}
-    .mini{
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      padding:10px 12px;border-radius:12px;
-      cursor:pointer;font-size:12px;
+    .content p{margin:0 0 .9em}
+    .content p.sec{margin-top:1.2em;padding-top:.7em;border-top:1px solid var(--line);font-weight:700;color:#cfd8ff}
+    .content p.sec:first-child{margin-top:0;padding-top:0;border-top:0}
+    .content span{cursor:pointer;border-radius:4px}
+    .content span.cur{background:rgba(124,92,255,.45);box-shadow:0 0 0 2px rgba(124,92,255,.45)}
+    .content .empty{color:var(--muted)}
+
+    details.misc{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:10px 12px}
+    details.misc summary{cursor:pointer;font-size:13px;color:var(--muted);min-height:28px;display:flex;align-items:center}
+    .miscRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .miscBtn{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:46px;font-size:13px;cursor:pointer;padding:6px}
+    .miscBtn:disabled{opacity:.5}
+    footer{margin-top:14px;color:var(--muted);font-size:11px;text-align:center}
+
+    /* 再生の操作（画面下に固定） */
+    .player{
+      position:fixed;left:0;right:0;bottom:0;z-index:50;
+      background:rgba(10,14,30,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+      border-top:1px solid var(--line);
+      padding:8px 10px calc(10px + env(safe-area-inset-bottom));
     }
-    .range{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;}
-    input[type="range"]{width:140px;}
-    footer{margin-top:16px;color:var(--muted);font-size:11px;text-align:center;}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
-    .fetchTimestamp{font-size:12px;color:var(--muted);margin-top:8px;padding:8px;border-top:1px solid var(--line);}
-    .controlsRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-    .controlsRow .mini{flex:1;min-width:60px;text-align:center;}
-    @media (max-width:600px){.controlsRow{grid-template-columns:repeat(3,1fr)}}
-    .cacheInfo{font-size:11px;color:var(--muted);margin-top:6px;padding:6px;border-top:1px solid var(--line);}
-    .aiGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-    @media (max-width:460px){.aiGrid{grid-template-columns:1fr 1fr}}
-    .aiBtn{
-      border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--text);
-      border-radius:12px;padding:12px 8px;font-size:13px;font-weight:700;text-align:center;
-      cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;font-family:inherit;
-      transition:background .2s ease, border-color .2s ease;
+    .playerIn{max-width:760px;margin:0 auto}
+    .seekRow{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+    .seekRow input{flex:1;min-width:0;height:26px;accent-color:#8f7bff}
+    .seekRow .pos{flex:0 0 auto;min-width:92px;text-align:right;font-variant-numeric:tabular-nums}
+    .ctl{display:grid;grid-template-columns:1fr 1.25fr 1.6fr 1.25fr 1fr;gap:6px;margin-top:4px;align-items:stretch}
+    .cb{
+      border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);
+      border-radius:14px;min-height:64px;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;
+      font-size:11px;line-height:1.2;
     }
-    .aiBtn:hover{background:rgba(255,255,255,.10);}
-    .aiBtn.selected{background:linear-gradient(135deg, rgba(124,92,255,.55), rgba(36,211,238,.40));border-color:rgba(255,255,255,.40);}
-    .aiBtn.missing{opacity:.45;}
-    .aiPlay{margin-top:10px;width:100%;justify-content:center;font-size:14px;font-weight:700;font-family:inherit;}
-    .aiInfo{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;}
-    .takemura-badge {
-      display: inline-block;
-      margin-left: 8px;
-      padding: 2px 10px;
-      font-size: 12px;
-      font-weight: 900;
-      color: #fff;
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
-      letter-spacing: 0.1em;
-      animation: takemura-glow 2s infinite alternate;
-      vertical-align: text-bottom;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.1s ease;
+    .cb b{font-size:20px;line-height:1;font-weight:800}
+    .cb:active{transform:scale(.97);background:rgba(255,255,255,.14)}
+    .cb.play{background:linear-gradient(135deg, var(--accent1), var(--accent2));border-color:rgba(255,255,255,.35);font-size:13px;font-weight:700}
+    .cb.play b{font-size:26px}
+    .rateRow{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted)}
+    .rateRow input{flex:1;min-width:0;height:24px;accent-color:#24d3ee}
+    .rateRow .val{min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+
+    /* 武村名言ポンチョ（従来どおり） */
+    .takemura-badge{
+      display:inline-block;margin-left:6px;padding:2px 10px;font-size:12px;font-weight:900;color:#fff;
+      background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:12px;
+      box-shadow:0 4px 15px rgba(245,87,108,.4);letter-spacing:.1em;
+      animation:takemura-glow 2s infinite alternate;vertical-align:text-bottom;cursor:pointer;user-select:none;
+      -webkit-tap-highlight-color:transparent;transition:transform .1s ease;
     }
-    .takemura-badge:active {
-      transform: scale(0.9) !important;
+    .takemura-badge:active{transform:scale(.9) !important}
+    .toast-container{position:fixed;bottom:calc(var(--playerH) + 16px);right:14px;z-index:10000;display:flex;flex-direction:column;gap:12px;pointer-events:none}
+    .quote-toast{
+      background:linear-gradient(135deg, rgba(20,25,45,.95), rgba(30,36,60,.95));
+      border:1px solid rgba(255,255,255,.15);border-left:4px solid #f5576c;color:#fff;padding:16px 20px;border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:13.5px;line-height:1.5;max-width:300px;pointer-events:auto;
+      animation:slide-up-toast .4s forwards cubic-bezier(.175,.885,.32,1.275);
     }
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      pointer-events: none;
-    }
-    .quote-toast {
-      background: linear-gradient(135deg, rgba(20, 25, 45, 0.95), rgba(30, 36, 60, 0.95));
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-left: 4px solid #f5576c;
-      color: #fff;
-      padding: 16px 20px;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      font-size: 13.5px;
-      line-height: 1.5;
-      max-width: 300px;
-      pointer-events: auto;
-      animation: slide-up-toast 0.4s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .quote-toast strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 11px;
-      color: #fca5a5;
-      letter-spacing: 1px;
-    }
-    .quote-toast.fade-out {
-      animation: fade-out-toast 0.4s forwards ease-in;
-    }
-    @keyframes slide-up-toast {
-      from { opacity: 0; transform: translateY(30px) scale(0.9); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    @keyframes fade-out-toast {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to { opacity: 0; transform: translateY(15px) scale(0.9); }
-    }
-    @keyframes takemura-glow {
-      0% { box-shadow: 0 0 8px rgba(245, 87, 108, 0.4); transform: scale(1); }
-      100% { box-shadow: 0 0 16px rgba(240, 147, 251, 0.8), 0 0 24px rgba(245, 87, 108, 0.6); transform: scale(1.05); }
-    }
+    .quote-toast strong{display:block;margin-bottom:6px;font-size:11px;color:#fca5a5;letter-spacing:1px}
+    .quote-toast.fade-out{animation:fade-out-toast .4s forwards ease-in}
+    @keyframes slide-up-toast{from{opacity:0;transform:translateY(30px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes fade-out-toast{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(15px) scale(.9)}}
+    @keyframes takemura-glow{0%{box-shadow:0 0 8px rgba(245,87,108,.4);transform:scale(1)}100%{box-shadow:0 0 16px rgba(240,147,251,.8),0 0 24px rgba(245,87,108,.6);transform:scale(1.05)}}
   </style>
 </head>
 <body>
@@ -210,550 +160,713 @@
     <header>
       <div class="title">
         <div class="logo">N</div>
-        <div>
-          <h1>日報ビューア水野ハッキング <span class="takemura-badge" id="btnTakemura" title="武村名言ポンチョ">武村</span></h1>
-          <div class="sub">Google Drive の最新日報を表示・読み上げ</div>
-        </div>
+        <h1>日報ビューア水野ハッキング <span class="takemura-badge" id="btnTakemura" title="武村名言ポンチョ">武村</span></h1>
       </div>
-      <div class="pill"><span>状態</span><b id="status">待機中</b></div>
+      <div class="status" id="status">準備中…</div>
     </header>
 
-    <div class="grid">
-      <section class="card">
-        <div class="cardHeader"><h2>踏 日報取得</h2><span class="badge">起動ボタン</span></div>
-        <div class="cardBody">
-          <button class="btn primary" id="btnFetch">
-            <div class="left">
-              <div class="icon">笞｡</div>
-              <div class="label">
-                <strong>日報取得（最新）</strong>
-                <span>Google Drive から最新日報を取得</span>
-              </div>
-            </div>
-            <div class="chev">窶ｺ</div>
-          </button>
-          <div class="fetchTimestamp" id="fetchTimestamp"></div>
-          <div class="cacheInfo" id="cacheInfo"></div>
-          <div style="height:12px"></div>
-          <div class="card" style="box-shadow:none">
-            <div class="cardHeader"><h2>噫 業務報告実行</h2><span class="badge">自動実行</span></div>
-            <div class="cardBody">
-              <button class="btn primary" id="btnExecuteReport">
-                <div class="left">
-                  <div class="icon">笞｡</div>
-                  <div class="label">
-                    <strong>今すぐ実行</strong>
-                    <span>掲示板から最新投稿を取得・Drive に保存</span>
-                  </div>
-                </div>
-                <div class="chev">窶ｺ</div>
-              </button>
-              <div id="reportStatus"></div>
-            </div>
-          </div>
-          <div style="height:12px"></div>
-          <div class="card" style="box-shadow:none">
-            <div class="cardHeader"><h2>AI要約（視点を選ぶ）</h2><span class="badge">AI要約版</span></div>
-            <div class="cardBody">
-              <div class="aiGrid" id="aiGrid">
-                <button class="aiBtn" data-ai="全体">全体ダイジェスト</button>
-                <button class="aiBtn" data-ai="問題とリスク">問題とリスク</button>
-                <button class="aiBtn" data-ai="指示と宿題">指示と宿題</button>
-                <button class="aiBtn" data-ai="開発案件">開発案件の進捗</button>
-                <button class="aiBtn" data-ai="営業と市場">営業と市場</button>
-                <button class="aiBtn" data-ai="製造と購買">製造と購買</button>
-              </div>
-              <button class="btn primary aiPlay" id="btnSpeakAi">▶ 選んだ視点を再生</button>
-              <div class="aiInfo" id="aiInfo">視点を押すと表示、「再生」で読み上げます。</div>
-            </div>
-          </div>
-          <div style="height:12px"></div>
-          <div class="card" style="box-shadow:none">
-            <div class="cardHeader"><h2>塘 対象者の日報全文</h2><span class="badge">全文版</span></div>
-            <div class="cardBody">
-              <div class="btnRow">
-                <button class="btn good" id="btnViewFull">
-                  <div class="left"><div class="icon">操</div>
-                    <div class="label"><strong>全文閲覧</strong><span>最新の「全文版」を表示</span></div>
-                  </div><div class="chev">窶ｺ</div>
-                </button>
-                <button class="btn good" id="btnSpeakFull">
-                  <div class="left"><div class="icon">矧</div>
-                    <div class="label"><strong>全文再生</strong><span>ブラウザ音声で読み上げ</span></div>
-                  </div><div class="chev">窶ｺ</div>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div style="height:12px"></div>
-          <div class="card" style="box-shadow:none">
-            <div class="cardHeader"><h2>ｧｭ 監視ワードの抽出</h2><span class="badge">要約版</span></div>
-            <div class="cardBody">
-              <div class="btnRow">
-                <button class="btn warn" id="btnViewSummary">
-                  <div class="left"><div class="icon">早・輀</div>
-                    <div class="label"><strong>要約閲覧</strong><span>最新の「要約版」を表示</span></div>
-                  </div><div class="chev">窶ｺ</div>
-                </button>
-                <button class="btn warn" id="btnSpeakSummary">
-                  <div class="left"><div class="icon">而</div>
-                    <div class="label"><strong>要約再生</strong><span>ブラウザ音声で読み上げ</span></div>
-                  </div><div class="chev">窶ｺ</div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div class="tabs" id="tabs">
+      <button class="tab" data-tab="ai">AI要約</button>
+      <button class="tab" data-tab="full">全文</button>
+      <button class="tab" data-tab="summary">監視ワード</button>
+      <button class="tab" data-tab="person">人物</button>
+    </div>
 
-      <section class="card">
-        <div class="cardHeader"><h2>ｪ鼀 ビューワ</h2><span class="badge" id="viewerBadge">未取得</span></div>
-        <div class="cardBody viewer">
-          <div class="toolbar">
-            <div class="meta">
-              <span id="metaDate">日付：-</span><span class="dot"></span><span id="metaFile">ファイル：-</span>
-            </div>
-            <div class="range">
-              <span>速度</span>
-              <input id="rate" type="range" min="0.7" max="1.4" step="0.05" value="1.0" />
-              <span id="rateVal">1.00</span>
-            </div>
-          </div>
-          <div class="controlsRow">
-            <button class="mini" id="btnPrev">竢ｮ 戻る</button>
-            <button class="mini" id="btnStop">竢ｹ 停止</button>
-            <button class="mini" id="btnResume">笆ｶ 再開</button>
-            <button class="mini" id="btnNext">竢ｭ 次へ</button>
-          </div>
-          <div class="content" id="content">まず「日報取得（最新）」を押してね。</div>
-          <footer>c NIPPO Viewer</footer>
-        </div>
-      </section>
+    <div class="panel" id="panelAi" hidden>
+      <div class="chips" id="aiChips">
+        <button class="chip" data-ai="全体">全体ダイジェスト</button>
+        <button class="chip" data-ai="問題とリスク">問題とリスク</button>
+        <button class="chip" data-ai="指示と宿題">指示と宿題</button>
+        <button class="chip" data-ai="開発案件">開発案件の進捗</button>
+        <button class="chip" data-ai="営業と市場">営業と市場</button>
+        <button class="chip" data-ai="製造と購買">製造と購買</button>
+      </div>
+      <div class="hint" id="aiHint"></div>
+    </div>
+
+    <div class="panel" id="panelPerson" hidden>
+      <div class="personRow">
+        <select class="field" id="personSelect" aria-label="氏名"><option value="">氏名を選ぶ</option></select>
+        <label class="daysBox">過去 <input class="field" id="personDays" type="number" inputmode="numeric" min="1" max="60" value="7" aria-label="過去何日"> 日</label>
+      </div>
+      <div class="personRow2">
+        <select class="field" id="personOrder" aria-label="並び順">
+          <option value="new">新しい日から</option>
+          <option value="old">古い日から</option>
+        </select>
+        <button class="go" id="btnPerson">読み込む</button>
+      </div>
+      <div class="hint" id="personHint">氏名と「過去何日」を選んで「読み込む」を押すと、その人の日報だけを並べます。</div>
+    </div>
+
+    <div class="now">
+      <div class="nowTitle" id="nowTitle">日報を読み込んでいます…</div>
+      <div class="nowMeta" id="nowMeta"></div>
+    </div>
+
+    <div class="content" id="content"><p class="empty">読み込み中です。</p></div>
+
+    <details class="misc">
+      <summary>その他（取り直し・収集の実行）</summary>
+      <div class="miscRow">
+        <button class="miscBtn" id="btnRefresh">最新の日報を取り直す</button>
+        <button class="miscBtn" id="btnExecute">掲示板から今すぐ収集する</button>
+      </div>
+      <div class="hint" id="miscInfo"></div>
+    </details>
+    <footer>NIPPO Viewer</footer>
+  </div>
+
+  <div class="player" id="player">
+    <div class="playerIn">
+      <div class="seekRow">
+        <input id="seek" type="range" min="0" max="0" step="1" value="0" aria-label="再生位置">
+        <span class="pos" id="posText">-</span>
+      </div>
+      <div class="ctl">
+        <button class="cb" id="btnPrevSec"><b>⏮</b><span id="lblPrev">前の項目</span></button>
+        <button class="cb" id="btnBack"><b>↺ 30</b><span>30秒戻る</span></button>
+        <button class="cb play" id="btnPlay"><b id="playIcon">▶</b><span id="playLabel">再生</span></button>
+        <button class="cb" id="btnFwd"><b>30 ↻</b><span>30秒進む</span></button>
+        <button class="cb" id="btnNextSec"><b>⏭</b><span id="lblNext">次の項目</span></button>
+      </div>
+      <div class="rateRow">
+        <span>速度</span>
+        <input id="rate" type="range" min="0.7" max="2" step="0.05" value="1" aria-label="読み上げ速度">
+        <span class="val" id="rateVal">1.00</span>
+      </div>
     </div>
   </div>
 
 <script>
   // ===== 設定 =====
   const APPS_SCRIPT_WEB_URL = "https://script.google.com/macros/s/AKfycbwn8Kqw6dReBh97ki94LzZYnd0qo5Zo6xXiwrbak_MDO48k0X_NxyEyt6cZZ3Q7efj4kQ/exec";
-  const CACHE_KEY = "nippo_viewer_cache";
-  const CACHE_TIMESTAMP_KEY = "nippo_viewer_cache_time";
-  const STATE_KEY = "nippo_viewer_state";
-
-  // ===== 状態管理 =====
-  const state = {
-    bundle: null,
-    viewKind: null,
-    speech: { paragraphs: [], idx: 0, paused: false },
-    fetchedAt: null,
-    wakeLock: null,
-    audioContext: null,
-    aiKey: "全体"
-  };
-
-  const $ = (id) => document.getElementById(id);
-  const setStatus = (s) => $("status").textContent = s;
-
-  function setViewerMeta({dateFolderName, fileName, kind}) {
-    $("metaDate").textContent = `日付：${dateFolderName || "-"}`;
-    $("metaFile").textContent = `ファイル：${fileName || "-"}`;
-    $("viewerBadge").textContent = kind ? kindLabel(kind) : "未取得";
-  }
-
-  // ===== AI要約（視点別） =====
+  const LS = { bundle: "nv2_bundle", people: "nv2_people", person: "nv2_person", prefs: "nv2_prefs", pos: "nv2_pos" };
   const AI_LABELS = {
     "全体": "全体ダイジェスト", "問題とリスク": "問題とリスク", "指示と宿題": "指示と宿題",
     "開発案件": "開発案件の進捗", "営業と市場": "営業と市場", "製造と購買": "製造と購買"
   };
-  const isAiKind = (kind) => typeof kind === "string" && kind.indexOf("ai:") === 0;
+  const CHUNK_MAX = 110;      // 1回に読み上げる長さの上限（文字）。短く区切ると途中で止まりにくく、30秒送りも細かく効く
+  const SKIP_SECONDS = 30;
 
-  function kindLabel(kind) {
-    if (kind === "summary") return "要約表示";
-    if (kind === "full") return "全文表示";
-    if (isAiKind(kind)) return "AI要約・" + (AI_LABELS[kind.slice(3)] || kind.slice(3));
-    return "未取得";
+  const $ = (id) => document.getElementById(id);
+  const setStatus = (s) => { $("status").textContent = s; };
+
+  // ===== 保存と読み出し（端末内） =====
+  function lsGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; }
+  }
+  function lsSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.log("保存失敗", key, e); }
   }
 
-  // 表示する項目を返す（無ければ null）
-  function getItem(b, kind) {
-    if (!b) return null;
-    if (kind === "summary") return b.summary;
-    if (kind === "full") return b.full;
-    if (isAiKind(kind)) {
-      const items = (b.ai && b.ai.items) || [];
-      return items.find(it => it.key === kind.slice(3)) || null;
-    }
-    return null;
+  // ===== 状態 =====
+  const S = {
+    bundle: lsGet(LS.bundle, null),       // 最新の日報一式 {dateFolderName, summary, full, ai, fetchedAt}
+    people: lsGet(LS.people, null),       // 選べる人 {list:[{id,label}], fetchedAt}
+    person: lsGet(LS.person, null),       // 読み込んだ人物の履歴 {id,label,days,order,items,from,to,fetchedAt}
+    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new" }, lsGet(LS.prefs, {})),
+    pos: lsGet(LS.pos, {}),               // 種類ごとの再生位置 {kind: {sig, idx}}
+    kind: null,
+    sig: "",                              // いま表示している内容の識別（ファイル名など）。変わったら位置を先頭に戻す
+    chunks: [],                           // 読み上げの単位 [{t(表示), say(読み), sec(項目番号)}]
+    secStarts: [],                        // 各項目の先頭の chunk 番号
+    cum: [],                              // 先頭からの累計文字数
+    idx: 0,
+    playing: false,
+    gen: 0,                               // 読み上げの世代。古い読み上げの終了通知を無視するため
+    lastStart: 0,
+    cps: 7,                               // 速度1.0での1秒あたりの文字数（読みながら実測で補正）
+    wake: null,
+    voice: null
+  };
+  const savePrefs = () => lsSet(LS.prefs, S.prefs);
+
+  // ===== 中継（Apps Script）とのやり取り =====
+  async function apiGet(action) {
+    const r = await fetch(`${APPS_SCRIPT_WEB_URL}?action=${action}`);
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || "取得に失敗しました");
+    return d;
   }
 
-  // "20261110_192600" → "19:26"
-  function prefixTime(name) {
+  async function fetchLatest() {
+    const d = await apiGet("getLatestReport");
+    S.bundle = {
+      dateFolderName: d.dateFolderName,
+      summary: { name: d.summary.name, text: d.summary.text },
+      full: { name: d.full.name, text: d.full.text },
+      ai: { prefix: (d.ai && d.ai.prefix) || "", items: (d.ai && d.ai.items) || [], dateFolderName: (d.ai && d.ai.dateFolderName) || d.dateFolderName },
+      fetchedAt: Date.now()
+    };
+    lsSet(LS.bundle, S.bundle);
+    return S.bundle;
+  }
+
+  async function fetchPeople() {
+    const d = await apiGet("getPersonList");
+    S.people = { list: d.people || [], fetchedAt: Date.now() };
+    lsSet(LS.people, S.people);
+    return S.people;
+  }
+
+  // 氏名はアドレスに載せず、本文で送る
+  async function fetchPerson(id, days) {
+    const r = await fetch(`${APPS_SCRIPT_WEB_URL}?action=getPersonHistory`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "getPersonHistory", person: id, days: days })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || "取得に失敗しました");
+    return d;
+  }
+
+  // ===== 表示する内容を決める =====
+  const isAi = (kind) => typeof kind === "string" && kind.indexOf("ai:") === 0;
+  const tabOf = (kind) => isAi(kind) ? "ai" : kind;
+
+  function hhmm(name) {
     const m = (name || "").match(/\d{8}_(\d{2})(\d{2})\d{2}/);
     return m ? `${m[1]}:${m[2]}` : "";
   }
+  function dayLabel(key) {   // "20261113" → "11月13日（金）"
+    const y = +key.slice(0, 4), mo = +key.slice(4, 6), d = +key.slice(6, 8);
+    const w = "日月火水木金土"[new Date(y, mo - 1, d).getDay()];
+    return `${mo}月${d}日（${w}）`;
+  }
 
-  // 視点ボタンの選択状態と、AI要約がどの回のものかの表示を更新
-  function updateAiUi() {
-    const b = state.bundle;
-    const items = (b && b.ai && b.ai.items) || [];
-    const current = isAiKind(state.viewKind) ? state.viewKind.slice(3) : state.aiKey;
-    document.querySelectorAll("#aiGrid .aiBtn").forEach(btn => {
-      const key = btn.dataset.ai;
-      btn.classList.toggle("selected", key === current);
-      btn.classList.toggle("missing", !!b && !!b.ai && !items.some(it => it.key === key));
+  // 人物の履歴を、読み上げ用の1本の文章にする。「■」で始まる行が日付の区切り
+  function personText(p) {
+    const items = p.order === "old" ? p.items.slice().reverse() : p.items;
+    const out = [];
+    items.forEach(it => {
+      out.push(`■ ${dayLabel(it.key)}`);
+      out.push(it.body);
+      if (it.replies && it.replies.length) {
+        out.push(`（返信 ${it.replies.length}件）`);
+        it.replies.forEach(r => out.push(r));
+      }
+      out.push("");
     });
-    let info = "視点を押すと表示、「再生」で読み上げます。";
-    if (b && b.ai) {
-      if (!items.length) {
-        info = "この日のAI要約はまだ作成されていません（毎日 19:46頃と21:46頃に作成）。";
-      } else {
-        const aiTime = prefixTime(b.ai.prefix);
-        const fullTime = prefixTime(b.full && b.full.name);
-        info = `AI要約：${aiTime} 収集分`;
-        if (fullTime && aiTime && fullTime !== aiTime) {
-          info += `（最新の ${fullTime} 収集分はまだ作成されていません）`;
-        }
-      }
-    }
-    $("aiInfo").textContent = info;
+    return out.join("\n");
   }
 
-  function showText(text, meta) {
-    $("content").textContent = text || "";
-    setViewerMeta(meta || {});
-  }
-
-  function formatDateTime(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const h = String(date.getHours()).padStart(2, '0');
-    const mi = String(date.getMinutes()).padStart(2, '0');
-    return `${y}-${m}-${d} ${h}:${mi}`;
-  }
-
-  function updateFetchTimestamp() {
-    if (state.fetchedAt) {
-      $("fetchTimestamp").textContent = `取得日時：${formatDateTime(state.fetchedAt)}`;
-    } else {
-      $("fetchTimestamp").textContent = "";
-    }
-  }
-
-  function updateCacheInfo() {
-    const cacheTime = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-    if (cacheTime) {
-      const date = new Date(parseInt(cacheTime));
-      $("cacheInfo").textContent = `沈 キャッシュ：${formatDateTime(date)}`;
-    } else {
-      $("cacheInfo").textContent = "";
-    }
-  }
-
-  // ===== ローカルストレージ操作 =====
-  function saveState() {
-    try {
-      const stateData = {
-        bundle: state.bundle,
-        viewKind: state.viewKind,
-        fetchedAt: state.fetchedAt ? state.fetchedAt.toISOString() : null
+  // 種類ごとに {title, meta, text, sig, empty} を返す
+  function getSource(kind) {
+    const b = S.bundle;
+    if (kind === "person") {
+      const p = S.person;
+      if (!p) return { title: "人物の日報", meta: "", text: "", sig: "", empty: "氏名と「過去何日」を選んで「読み込む」を押してください。" };
+      const range = `${dayLabel(p.from)} 〜 ${dayLabel(p.to)}`;
+      return {
+        title: `${p.label}さん　過去${p.days}日`,
+        meta: `${range}・日報 ${p.items.length}日分・${p.order === "old" ? "古い日から" : "新しい日から"}`,
+        text: personText(p),
+        sig: `person|${p.id}|${p.days}|${p.order}|${p.items.length}|${p.items[0] ? p.items[0].key : ""}`,
+        empty: "この期間に、この人の日報は見つかりませんでした。"
       };
-      localStorage.setItem(STATE_KEY, JSON.stringify(stateData));
-    } catch (e) {
-      console.log("状態保存失敗", e);
     }
+    if (!b) return { title: "日報", meta: "", text: "", sig: "", empty: "日報をまだ取得できていません。" };
+    if (kind === "full") {
+      return { title: "全文", meta: `${b.dateFolderName}・${hhmm(b.full.name)} 収集分`, text: b.full.text, sig: b.full.name, empty: "全文版がまだありません。" };
+    }
+    if (kind === "summary") {
+      return { title: "監視ワードの抽出", meta: `${b.dateFolderName}・${hhmm(b.summary.name)} 収集分`, text: b.summary.text, sig: b.summary.name, empty: "要約版がまだありません。" };
+    }
+    const key = kind.slice(3);
+    const it = (b.ai.items || []).find(x => x.key === key);
+    const fullTime = hhmm(b.full.name), aiTime = hhmm(b.ai.prefix);
+    const aiDate = b.ai.dateFolderName || b.dateFolderName;
+    let meta = `${aiDate}・${aiTime || "-"} 収集分`;
+    // AI要約が最新の収集に追いついていないとき（収集の約20分後に作られる）は、そのことを出す
+    if (it && (aiDate !== b.dateFolderName || (fullTime && aiTime && fullTime !== aiTime))) {
+      meta += `（最新の ${aiDate !== b.dateFolderName ? b.dateFolderName + " " : ""}${fullTime} 収集分のAI要約はまだありません）`;
+    }
+    return {
+      title: `AI要約・${AI_LABELS[key] || key}`,
+      meta: it ? meta : b.dateFolderName,
+      text: it ? it.text : "",
+      sig: it ? it.name : "",
+      empty: "この視点のAI要約はまだ作成されていません。毎日 19:46頃と21:46頃に作成されます。"
+    };
   }
 
-  function loadState() {
-    try {
-      const saved = localStorage.getItem(STATE_KEY);
-      if (saved) {
-        const stateData = JSON.parse(saved);
-        state.bundle = stateData.bundle;
-        state.viewKind = stateData.viewKind;
-        state.fetchedAt = stateData.fetchedAt ? new Date(stateData.fetchedAt) : null;
-        return true;
-      }
-    } catch (e) {
-      console.log("状態復元失敗", e);
-    }
-    return false;
-  }
-
-  function saveToCache(bundle) {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(bundle));
-      localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-      updateCacheInfo();
-    } catch (e) {
-      console.log("キャッシュ保存失敗", e);
-    }
-  }
-
-  function loadFromCache() {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (e) {
-      console.log("キャッシュ読み込み失敗", e);
-    }
-    return null;
-  }
-
-  function clearCache() {
-    try {
-      localStorage.removeItem(CACHE_KEY);
-      localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-      updateCacheInfo();
-    } catch (e) {
-      console.log("キャッシュ削除失敗", e);
-    }
-  }
-
-  // ===== Wake Lock（常時保持）=====
-  async function acquireWakeLock() {
-    if (!("wakeLock" in navigator)) return;
-    try {
-      if (!state.wakeLock) {
-        state.wakeLock = await navigator.wakeLock.request("screen");
-      }
-      document.addEventListener("visibilitychange", async () => {
-        if (document.hidden && state.wakeLock) {
-          try {
-            state.wakeLock.release();
-            state.wakeLock = null;
-          } catch (e) {
-            console.log("Wake Lock 解放エラー", e);
-          }
-        } else if (!document.hidden && !state.wakeLock) {
-          try {
-            state.wakeLock = await navigator.wakeLock.request("screen");
-          } catch (e) {
-            console.log("Wake Lock 再取得エラー", e);
-          }
+  // ===== 文章を読み上げの単位に区切る =====
+  // 行ごとに、句点で文に分け、長すぎる文は読点や空白でさらに分けて CHUNK_MAX 文字以内にまとめる
+  function splitLine(line) {
+    const sentences = line.match(/[^。！？!?]+[。！？!?]*/g) || [line];
+    const pieces = [];
+    sentences.forEach(s => {
+      if (s.length <= CHUNK_MAX) { pieces.push(s); return; }
+      const tokens = s.match(/[^ 　、]+[ 　、]*/g) || [s];
+      let cur = "";
+      tokens.forEach(tk => {
+        while (tk.length > CHUNK_MAX) {              // 区切りのない長い文字列
+          if (cur) { pieces.push(cur); cur = ""; }
+          pieces.push(tk.slice(0, CHUNK_MAX)); tk = tk.slice(CHUNK_MAX);
         }
+        if (cur && (cur + tk).length > CHUNK_MAX) { pieces.push(cur); cur = ""; }
+        cur += tk;
       });
-    } catch (e) {
-      console.log("Wake Lock 取得失敗", e);
-    }
+      if (cur) pieces.push(cur);
+    });
+    const out = [];
+    let cur = "";
+    pieces.forEach(p => {
+      if (cur && (cur + p).length > CHUNK_MAX) { out.push(cur); cur = ""; }
+      cur += p;
+    });
+    if (cur) out.push(cur);
+    return out;
   }
 
-  function releaseWakeLock() {
-    if (state.wakeLock) { 
-      try {
-        state.wakeLock.release(); 
-        state.wakeLock = null; 
-      } catch (e) {
-        console.log("Wake Lock 解放エラー", e);
-      }
-    }
+  // 項目（次の人・次の見出し・次の日）の先頭になる行か
+  function isSectionLine(line, kind) {
+    if (kind === "full") return /^次は、.+さんです。$/.test(line);
+    if (kind === "person") return /^■ /.test(line);
+    if (kind === "summary") return /^【.+】/.test(line) || /関連する投稿があります。$/.test(line) || line === "続いて";
+    return /^【.+】/.test(line);
   }
 
-  // ===== Audio Context 初期化 =====
-  function initAudioContext() {
-    if (state.audioContext) return;
+  // 読み上げ用に、記号などを読みやすく直す（表示は変えない）
+  function toSpeech(text) {
+    return text
+      .replace(/^■ /, "")
+      .replace(/（([日月火水木金土])）/g, "、$1曜日。")
+      .replace(/\\\\\S+/g, "")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/[●○〇◯◎■□◆◇★☆※▼▲▽△♦]/g, "、")
+      .replace(/[→⇒]/g, "、")
+      .replace(/・{2,}/g, "、")
+      .trim();
+  }
+
+  // 文章 → {lines:[{sec, chunkIdx:[..]}], chunks, secStarts}
+  function buildChunks(text, kind) {
+    const chunks = [], secStarts = [], lines = [];
+    let sec = -1;
+    (text || "").replace(/\r/g, "").split("\n").forEach(raw => {
+      const line = raw.trim();
+      if (!line) return;
+      const head = isSectionLine(line, kind);
+      if (head || sec < 0) { sec++; secStarts.push(chunks.length); }
+      const ids = [];
+      splitLine(line).forEach(t => {
+        const say = toSpeech(t);
+        ids.push(chunks.length);
+        chunks.push({ t: t, say: say, sec: sec });
+      });
+      lines.push({ head: head, ids: ids });
+    });
+    return { chunks, secStarts, lines };
+  }
+
+  // ===== 画面に出す =====
+  function render(kind, opt) {
+    opt = opt || {};
+    stopSpeech();
+    const src = getSource(kind);
+    S.kind = kind;
+    S.prefs.kind = kind;
+    if (isAi(kind)) S.prefs.aiKey = kind.slice(3);
+    savePrefs();
+
+    const built = buildChunks(src.text, kind);
+    S.chunks = built.chunks;
+    S.secStarts = built.secStarts;
+    S.cum = [];
+    let total = 0;
+    S.chunks.forEach(c => { S.cum.push(total); total += c.say.length; });
+    S.totalChars = total;
+    S.sig = src.sig;
+
+    // 前回の続き（同じ内容のときだけ）
+    const saved = S.pos[kind];
+    S.idx = (!opt.fromTop && saved && saved.sig === src.sig && saved.idx < S.chunks.length) ? saved.idx : 0;
+
+    $("nowTitle").textContent = src.title;
+    $("nowMeta").textContent = src.meta;
+
+    const box = $("content");
+    box.textContent = "";
+    if (!S.chunks.length) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = src.empty;
+      box.appendChild(p);
+    } else {
+      const frag = document.createDocumentFragment();
+      built.lines.forEach(ln => {
+        const p = document.createElement("p");
+        if (ln.head) p.className = "sec";
+        ln.ids.forEach(i => {
+          const sp = document.createElement("span");
+          sp.dataset.i = i;
+          sp.textContent = S.chunks[i].t;
+          p.appendChild(sp);
+        });
+        frag.appendChild(p);
+      });
+      box.appendChild(frag);
+    }
+
+    const unit = kind === "full" ? "人" : (kind === "person" ? "日" : "項目");
+    $("lblPrev").textContent = `前の${unit}`;
+    $("lblNext").textContent = `次の${unit}`;
+    $("seek").max = Math.max(0, S.chunks.length - 1);
+
+    updateTabs();
+    markCurrent(false);
+    if (S.idx > 0) markCurrent(true);
+    updatePlayButton();
+  }
+
+  function updateTabs() {
+    const tab = tabOf(S.kind);
+    document.querySelectorAll("#tabs .tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+    $("panelAi").hidden = tab !== "ai";
+    $("panelPerson").hidden = tab !== "person";
+    const items = (S.bundle && S.bundle.ai && S.bundle.ai.items) || [];
+    document.querySelectorAll("#aiChips .chip").forEach(c => {
+      c.classList.toggle("on", S.kind === "ai:" + c.dataset.ai);
+      c.classList.toggle("missing", !!S.bundle && !items.some(it => it.key === c.dataset.ai));
+    });
+    $("aiHint").textContent = (S.bundle && !items.length) ? "この日のAI要約はまだ作成されていません（毎日 19:46頃と21:46頃に作成）。" : "";
+    $("aiHint").style.display = $("aiHint").textContent ? "" : "none";
+  }
+
+  function fmtTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m >= 60 ? `${Math.floor(m / 60)}時間${m % 60}分` : `${m}分${String(s).padStart(2, "0")}秒`;
+  }
+
+  // 今の位置を画面に反映（色付け・進み具合・残り時間）
+  function markCurrent(scroll) {
+    const box = $("content");
+    const old = box.querySelector("span.cur");
+    if (old) old.classList.remove("cur");
+    const n = S.chunks.length;
+    if (!n) { $("posText").textContent = "-"; $("seek").value = 0; return; }
+    const cur = box.querySelector(`span[data-i="${S.idx}"]`);
+    if (cur) {
+      cur.classList.add("cur");
+      if (scroll) cur.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+    $("seek").value = S.idx;
+    const remain = (S.totalChars - S.cum[S.idx]) / (S.cps * rate());
+    $("posText").textContent = `残り 約${fmtTime(remain)}`;
+  }
+
+  function savePos() {
+    if (!S.kind) return;
+    S.pos[S.kind] = { sig: S.sig, idx: S.idx };
+    lsSet(LS.pos, S.pos);
+  }
+
+  // ===== 読み上げ =====
+  const rate = () => parseFloat($("rate").value || "1") || 1;
+
+  function pickVoice() {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      state.audioContext = new AudioContext();
-    } catch (e) {
-      console.log("Audio Context 初期化失敗", e);
+      const vs = window.speechSynthesis.getVoices().filter(v => /^ja/i.test(v.lang));
+      S.voice = vs.find(v => v.localService) || vs[0] || null;
+    } catch (e) { S.voice = null; }
+  }
+
+  function stopSpeech() {
+    S.playing = false;
+    S.gen++;
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    updatePlayButton();
+  }
+
+  function updatePlayButton() {
+    $("playIcon").textContent = S.playing ? "⏸" : "▶";
+    $("playLabel").textContent = S.playing ? "一時停止" : (S.idx > 0 && S.idx < S.chunks.length ? "続きから再生" : "再生");
+  }
+
+  function speakCurrent() {
+    if (!("speechSynthesis" in window)) { alert("この端末のブラウザは音声読み上げに対応していません。"); return; }
+    if (!S.chunks.length) return;
+    if (S.idx >= S.chunks.length) S.idx = 0;
+    const gen = ++S.gen;
+    S.playing = true;
+    updatePlayButton();
+    markCurrent(true);
+    savePos();
+    // 読んでいる途中のものがあるときだけ止める（文から文へ自然に進むときは間を空けない）
+    const sy = window.speechSynthesis;
+    const busy = sy.speaking || sy.pending;
+    if (busy) { try { sy.cancel(); } catch (e) {} }
+
+    const c = S.chunks[S.idx];
+    const next = () => {
+      if (gen !== S.gen || !S.playing) return;
+      if (S.idx + 1 < S.chunks.length) { S.idx++; speakCurrent(); }
+      else { S.playing = false; S.idx = 0; savePos(); updatePlayButton(); markCurrent(false); setStatus("読み上げ完了"); }
+    };
+    if (!c.say) { next(); return; }   // 記号だけの行は飛ばす
+
+    const u = new SpeechSynthesisUtterance(c.say);
+    u.lang = "ja-JP";
+    if (S.voice) u.voice = S.voice;
+    const r = rate();
+    u.rate = r; u.pitch = 1; u.volume = 1;
+    const t0 = Date.now();
+    S.lastStart = t0;
+    u.onend = () => {
+      if (gen !== S.gen) return;
+      // 実際にかかった時間から、読む速さ（文字/秒）を補正する。30秒送りと残り時間の見積もりに使う
+      const dur = (Date.now() - t0) / 1000;
+      if (dur > 0.8 && c.say.length >= 20) {
+        const v = Math.min(14, Math.max(3, c.say.length / dur / r));
+        S.cps = S.cps * 0.8 + v * 0.2;
+      }
+      next();
+    };
+    u.onerror = (ev) => {
+      if (gen !== S.gen) return;
+      if (ev && (ev.error === "interrupted" || ev.error === "canceled")) return;
+      console.log("読み上げエラー", ev && ev.error);
+      // 少し待ってやり直す（見張り役が拾う）
+    };
+    setStatus("読み上げ中");
+    // 一部の端末は cancel の直後の speak を取りこぼすので、少し間を置く
+    if (busy) setTimeout(() => { if (gen === S.gen && S.playing) sy.speak(u); }, 80);
+    else sy.speak(u);
+    keepAwake();
+  }
+
+  function togglePlay() {
+    if (S.playing) { stopSpeech(); savePos(); setStatus("一時停止"); }
+    else speakCurrent();
+  }
+
+  function jumpTo(i, fromUser) {
+    if (!S.chunks.length) return;
+    S.idx = Math.min(S.chunks.length - 1, Math.max(0, i));
+    savePos();
+    if (S.playing) speakCurrent();
+    else { markCurrent(!!fromUser); updatePlayButton(); }
+  }
+
+  // およそ sec 秒ぶん進む（負なら戻る）。読む速さの実測値から文字数に直して数える
+  function skipSeconds(sec) {
+    if (!S.chunks.length) return;
+    const target = Math.abs(sec) * S.cps * rate();
+    let i = S.idx, acc = 0;
+    if (sec > 0) {
+      while (i < S.chunks.length - 1 && acc < target) { acc += S.chunks[i].say.length; i++; }
+    } else {
+      while (i > 0 && acc < target) { i--; acc += S.chunks[i].say.length; }
+    }
+    jumpTo(i, true);
+  }
+
+  function skipSection(dir) {
+    if (!S.chunks.length) return;
+    const sec = S.chunks[S.idx].sec;
+    if (dir > 0) {
+      if (sec + 1 < S.secStarts.length) jumpTo(S.secStarts[sec + 1], true);
+    } else {
+      // 項目の途中なら先頭へ、先頭付近なら前の項目へ
+      const start = S.secStarts[sec];
+      if (S.idx - start > 1 || sec === 0) jumpTo(start, true);
+      else jumpTo(S.secStarts[sec - 1], true);
     }
   }
 
-  // ===== Apps Script を経由して日報を取得 =====
-  async function fetchLatestBundleFromDrive() {
-    setStatus("Drive検索中…");
-    
+  // 読み上げが黙って止まったときに拾い直す見張り役
+  setInterval(() => {
+    if (!S.playing || document.hidden) return;
+    const sy = window.speechSynthesis;
+    if (!sy.speaking && !sy.pending && Date.now() - S.lastStart > 4000) speakCurrent();
+  }, 2000);
+
+  // ===== 画面を点けたままにする =====
+  async function keepAwake() {
+    if (!("wakeLock" in navigator) || document.hidden) return;
     try {
-      const response = await fetch(`${APPS_SCRIPT_WEB_URL}?action=getLatestReport`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'ファイル取得失敗');
-      }
-      
-      state.bundle = {
-        dateKey: data.dateFolderName,
-        dateFolderName: data.dateFolderName,
-        summary: { id: '', name: data.summary.name, text: data.summary.text },
-        full: { id: '', name: data.full.name, text: data.full.text },
-        ai: { prefix: (data.ai && data.ai.prefix) || '', items: (data.ai && data.ai.items) || [] },
-      };
-      state.fetchedAt = new Date();
-      updateFetchTimestamp();
-      
-      // 状態とキャッシュを保存
-      saveState();
-      saveToCache(state.bundle);
-      
+      if (S.wake && !S.wake.released) return;
+      S.wake = await navigator.wakeLock.request("screen");
+      S.wake.addEventListener("release", () => { S.wake = null; });
+    } catch (e) { S.wake = null; }
+    showMisc();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { savePos(); return; }
+    keepAwake();   // 画面に戻ったら取り直す（別の画面に行くと自動で外れるため）
+    // 再生中に画面を離れて止まっていたら、続きから再開する
+    if (S.playing && !window.speechSynthesis.speaking) speakCurrent();
+  });
+  // 最初の操作のときにも取り直す（操作がないと許可されない端末があるため）
+  document.addEventListener("click", keepAwake, { passive: true });
+
+  function fmtDateTime(ms) {
+    if (!ms) return "-";
+    const d = new Date(ms), p = (n) => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function showMisc() {
+    const wake = !("wakeLock" in navigator) ? "この端末のブラウザでは使えません" : (S.wake ? "有効" : "操作すると有効になります");
+    $("miscInfo").textContent = `最後に取得：${fmtDateTime(S.bundle && S.bundle.fetchedAt)}　／　画面を点けたままにする：${wake}`;
+  }
+
+  // ===== 人物 =====
+  function fillPeople() {
+    const sel = $("personSelect");
+    const list = (S.people && S.people.list) || [];
+    const keep = sel.value || S.prefs.personId;
+    sel.textContent = "";
+    const o0 = document.createElement("option");
+    o0.value = ""; o0.textContent = list.length ? "氏名を選ぶ" : "氏名を読み込み中…";
+    sel.appendChild(o0);
+    list.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.id; o.textContent = p.label;
+      sel.appendChild(o);
+    });
+    if (keep && list.some(p => p.id === keep)) sel.value = keep;
+  }
+
+  async function loadPerson() {
+    const sel = $("personSelect");
+    const id = sel.value;
+    if (!id) { $("personHint").textContent = "氏名を選んでください。"; return; }
+    let days = parseInt($("personDays").value, 10);
+    if (!(days >= 1)) days = 7;
+    if (days > 60) days = 60;
+    $("personDays").value = days;
+    const order = $("personOrder").value;
+    const label = sel.options[sel.selectedIndex].textContent;
+    S.prefs.personId = id; S.prefs.days = days; S.prefs.order = order; savePrefs();
+
+    const btn = $("btnPerson");
+    btn.disabled = true; btn.textContent = "読み込み中…";
+    setStatus("人物の日報を取得中…");
+    try {
+      const d = await fetchPerson(id, days);
+      S.person = { id: id, label: label, days: d.days, order: order, items: d.items, from: d.from, to: d.to, fetchedAt: Date.now() };
+      lsSet(LS.person, S.person);
+      render("person", { fromTop: true });
+      $("personHint").textContent = d.items.length
+        ? `${label}さんの日報 ${d.items.length}日分を並べました。下の「再生」で読み上げます。`
+        : "この期間に日報が見つかりませんでした。日数を増やしてみてください。";
       setStatus("取得OK");
-      return state.bundle;
     } catch (e) {
       setStatus("取得失敗");
-      throw e;
+      $("personHint").textContent = "取得に失敗しました：" + e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = "読み込む";
     }
   }
 
-  function ensureBundle() {
-    if (state.bundle) return Promise.resolve(state.bundle);
-    
-    // キャッシュから復元
-    const cached = loadFromCache();
-    if (cached) {
-      state.bundle = cached;
-      state.fetchedAt = new Date(localStorage.getItem(CACHE_TIMESTAMP_KEY));
-      updateFetchTimestamp();
-      setStatus("キャッシュから復元");
-      return Promise.resolve(state.bundle);
+  // ===== 取得（開いたら自動で行う） =====
+  async function refresh(manual) {
+    setStatus("最新の日報を確認中…");
+    try {
+      const before = S.bundle ? [S.bundle.full.name, S.bundle.summary.name, S.bundle.ai.prefix, (S.bundle.ai.items || []).length].join("|") : "";
+      await fetchLatest();
+      const after = [S.bundle.full.name, S.bundle.summary.name, S.bundle.ai.prefix, (S.bundle.ai.items || []).length].join("|");
+      showMisc();
+      if (S.kind !== "person") {
+        if (before !== after || !S.chunks.length) {
+          // 再生中は止めない。次に切り替えたときに新しい内容になる
+          if (!S.playing) render(S.kind || S.prefs.kind);
+          setStatus(S.playing ? "新しい日報あり（再生後に反映）" : "最新を表示中");
+        } else {
+          updateTabs();
+          setStatus("最新です");
+        }
+      } else {
+        setStatus("最新です");
+      }
+    } catch (e) {
+      setStatus(S.bundle ? "取得失敗（前回分を表示）" : "取得失敗");
+      if (manual) alert("取得に失敗しました：" + e.message);
+      if (!S.bundle && S.kind !== "person") render(S.prefs.kind);
     }
-    
-    return fetchLatestBundleFromDrive();
-  }
-
-  async function view(kind) {
-    let b = await ensureBundle();
-    // 以前のキャッシュには AI要約が入っていないので、取り直す
-    if (isAiKind(kind) && !b.ai) b = await fetchLatestBundleFromDrive();
-    state.viewKind = kind;
-    if (isAiKind(kind)) state.aiKey = kind.slice(3);
-    const item = getItem(b, kind);
-    if (item) {
-      showText(item.text, { dateFolderName: b.dateFolderName, fileName: item.name, kind });
-      prepareSpeech(item.text, kind);
-    } else {
-      showText("この視点のAI要約はまだ作成されていません。\n毎日 19:46頃と21:46頃に作成されます。「日報取得（最新）」を押すと取り直します。",
-        { dateFolderName: b.dateFolderName, fileName: "-", kind });
-      prepareSpeech("", kind);
-    }
-    updateAiUi();
-    saveState(); // 画面表示状態を保存
-    return !!item;
-  }
-
-  function prepareSpeech(text, kind) {
-    // AI要約は1件1行なので行ごとに、全文・要約は空行ごとに区切って読む
-    const sep = isAiKind(kind) ? /\n+/ : /\n{2,}/;
-    const paras = (text || "").split(sep).map(s => s.trim()).filter(Boolean);
-    state.speech.paragraphs = paras.length ? paras : [(text || "").trim()];
-    state.speech.idx = 0;
-    state.speech.paused = false;
-  }
-
-  function speakFromCurrent() {
-    if (!("speechSynthesis" in window)) { alert("音声読み上げ未対応"); return; }
-    
-    initAudioContext();
-    acquireWakeLock(); // 常時 Wake Lock を保持
-    
-    window.speechSynthesis.cancel();
-    const paras = state.speech.paragraphs;
-    let idx = state.speech.idx;
-    if (!paras || !paras.length || !paras[idx]) return;
-    
-    const rate = parseFloat($("rate").value || "1.0");
-    const u = new SpeechSynthesisUtterance(paras[idx]);
-    u.lang = "ja-JP";
-    u.rate = rate;
-    u.pitch = 1.0;
-    u.volume = 1.0;
-    u.onend = () => {
-      if (state.speech.paused) return;
-      idx++;
-      if (idx < paras.length) { state.speech.idx = idx; speakFromCurrent(); }
-      else { setStatus("読み上げ完了"); releaseWakeLock(); }
-    };
-    u.onerror = () => { setStatus("読み上げエラー"); releaseWakeLock(); };
-    setStatus("読み上げ中…");
-    window.speechSynthesis.speak(u);
   }
 
   async function executeReport() {
-    const btn = $("btnExecuteReport");
+    if (!confirm("掲示板から今すぐ収集します（1〜2分かかります）。実行しますか？")) return;
+    const btn = $("btnExecute");
+    btn.disabled = true;
     try {
-      btn.disabled = true;
       await fetch(APPS_SCRIPT_WEB_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "executeMain" }),
         mode: "no-cors"
       });
-      setStatus("笨蔀 実行しました");
-      clearCache();
+      setStatus("収集を実行しました");
+      await refresh(false);
     } catch (e) {
-      setStatus(`笶谀 エラー: ${e.message}`);
+      setStatus("実行エラー");
+      alert("実行に失敗しました：" + e.message);
     } finally {
       btn.disabled = false;
     }
   }
 
-  // ===== イベント =====
-  $("rate").addEventListener("input", () => $("rateVal").textContent = Number($("rate").value).toFixed(2));
-  $("btnFetch").addEventListener("click", async () => {
-    try {
-      await fetchLatestBundleFromDrive();
-      // AI要約を見ていたときは同じ視点のまま、それ以外は従来どおり要約を表示
-      await view(isAiKind(state.viewKind) ? state.viewKind : "summary");
-    } catch (e) {
-      setStatus("取得失敗");
-      alert(e.message);
-    }
-  });
-  $("btnViewFull").addEventListener("click", () => view("full").catch(e => alert(e.message)));
-  $("btnViewSummary").addEventListener("click", () => view("summary").catch(e => alert(e.message)));
-  $("btnSpeakFull").addEventListener("click", async () => { initAudioContext(); await view("full"); speakFromCurrent(); });
-  $("btnSpeakSummary").addEventListener("click", async () => { initAudioContext(); await view("summary"); speakFromCurrent(); });
-  document.querySelectorAll("#aiGrid .aiBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      view("ai:" + btn.dataset.ai).catch(e => alert(e.message));
-    });
-  });
-  $("btnSpeakAi").addEventListener("click", async () => {
-    try {
-      initAudioContext();
-      const ok = await view("ai:" + state.aiKey);
-      if (ok) speakFromCurrent();
-    } catch (e) { alert(e.message); }
-  });
-  $("btnStop").addEventListener("click", () => { state.speech.paused = true; window.speechSynthesis.cancel(); setStatus("停止"); releaseWakeLock(); });
-  $("btnResume").addEventListener("click", () => { state.speech.paused = false; speakFromCurrent(); });
-  $("btnNext").addEventListener("click", () => { const n = state.speech.paragraphs.length; state.speech.idx = Math.min(state.speech.idx + 1, n - 1); state.speech.paused = false; speakFromCurrent(); });
-  $("btnPrev").addEventListener("click", () => { state.speech.idx = Math.max(state.speech.idx - 1, 0); state.speech.paused = false; speakFromCurrent(); });
-  $("btnExecuteReport").addEventListener("click", executeReport);
-
-  // ===== 起動時の処理 =====
-  window.addEventListener("DOMContentLoaded", () => {
-    initAudioContext();
-    acquireWakeLock(); // 起動時から Wake Lock を保持
-    
-    // 状態を復元
-    if (loadState()) {
-      updateFetchTimestamp();
-      updateCacheInfo();
-      // 保存された状態を画面に反映
-      if (state.bundle && state.viewKind) {
-        if (isAiKind(state.viewKind)) state.aiKey = state.viewKind.slice(3);
-        const item = getItem(state.bundle, state.viewKind);
-        if (item) {
-          showText(item.text, { dateFolderName: state.bundle.dateFolderName, fileName: item.name, kind: state.viewKind });
-          prepareSpeech(item.text, state.viewKind);
-        }
-        setStatus("前回の状態を復元しました");
-      } else {
-        setStatus("準備OK");
-      }
-    } else {
-      updateCacheInfo();
-      setStatus("準備OK");
-    }
-    updateAiUi();
+  // ===== 操作の受け付け =====
+  document.querySelectorAll("#tabs .tab").forEach(b => b.addEventListener("click", () => {
+    const tab = b.dataset.tab;
+    if (tab === "ai") render("ai:" + (S.prefs.aiKey || "全体"));
+    else render(tab);
+  }));
+  document.querySelectorAll("#aiChips .chip").forEach(c => c.addEventListener("click", () => render("ai:" + c.dataset.ai)));
+  $("btnPerson").addEventListener("click", loadPerson);
+  $("personOrder").addEventListener("change", () => {
+    S.prefs.order = $("personOrder").value; savePrefs();
+    if (S.person) { S.person.order = S.prefs.order; lsSet(LS.person, S.person); if (S.kind === "person") render("person", { fromTop: true }); }
   });
 
-  // ページを離れるとき、状態を保存
-  window.addEventListener("beforeunload", () => {
-    saveState();
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnBack").addEventListener("click", () => skipSeconds(-SKIP_SECONDS));
+  $("btnFwd").addEventListener("click", () => skipSeconds(SKIP_SECONDS));
+  $("btnPrevSec").addEventListener("click", () => skipSection(-1));
+  $("btnNextSec").addEventListener("click", () => skipSection(1));
+  $("seek").addEventListener("change", () => jumpTo(parseInt($("seek").value, 10) || 0, true));
+  $("content").addEventListener("click", (ev) => {
+    const sp = ev.target.closest("span[data-i]");
+    if (sp) jumpTo(parseInt(sp.dataset.i, 10), false);
   });
+  $("rate").addEventListener("input", () => {
+    $("rateVal").textContent = rate().toFixed(2);
+    S.prefs.rate = rate(); savePrefs();
+    markCurrent(false);
+  });
+  $("rate").addEventListener("change", () => { if (S.playing) speakCurrent(); });   // 速度を変えたら今の文から読み直す
+  $("btnRefresh").addEventListener("click", () => refresh(true));
+  $("btnExecute").addEventListener("click", executeReport);
+  window.addEventListener("pagehide", savePos);
+
+  // ===== 起動 =====
+  (function init() {
+    $("rate").value = S.prefs.rate || 1;
+    $("rateVal").textContent = rate().toFixed(2);
+    $("personDays").value = S.prefs.days || 7;
+    $("personOrder").value = S.prefs.order || "new";
+    fillPeople();
+    if ("speechSynthesis" in window) {
+      pickVoice();
+      window.speechSynthesis.onvoiceschanged = pickVoice;
+    }
+    // まず前回の内容をすぐ表示し、裏で最新を取りに行く（ボタンを押す必要はない）
+    let kind = S.prefs.kind || "ai:全体";
+    if (kind === "person" && !S.person) kind = "ai:全体";
+    render(kind);
+    showMisc();
+    keepAwake();
+    refresh(false);
+    // 氏名の一覧は1日1回取り直す
+    if (!S.people || Date.now() - S.people.fetchedAt > 12 * 3600 * 1000) {
+      fetchPeople().then(fillPeople).catch(() => { if (!S.people) $("personSelect").options[0].textContent = "氏名を取得できませんでした"; });
+    }
+  })();
 
   // ===== 武村名言ポンチョ =====
   const takemuraQuotes = [
@@ -789,7 +902,7 @@
     toast.className = "quote-toast";
     toast.innerHTML = `<strong>武村の金言</strong><div>${quote}</div>`;
     toastContainer.appendChild(toast);
-    
+
     // 5秒後にフェードアウト＆削除
     setTimeout(() => {
       if (toast.parentNode) {
