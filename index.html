@@ -83,6 +83,19 @@
     }
     .go:disabled{opacity:.5}
 
+    .listenTop{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 8px}
+    .listenTop button{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:44px;font-size:13px;cursor:pointer}
+    .listenList{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.2)}
+    .lrow{display:grid;grid-template-columns:1fr 48px 48px;gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.07)}
+    .lrow:last-child{border-bottom:0}
+    .lrow label{display:flex;align-items:center;gap:10px;min-height:46px;font-size:15px;cursor:pointer;min-width:0}
+    .lrow input{width:24px;height:24px;flex:0 0 auto;accent-color:#8f7bff}
+    .lrow.off label{color:var(--muted)}
+    .lrow button{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;height:44px;font-size:16px;cursor:pointer}
+    .lrow button:disabled{opacity:.3}
+    #lsDone{width:100%;margin-top:8px}
+    #btnListen{width:100%}
+
     /* いま流しているもの */
     .now{margin:2px 2px 8px}
     .nowTitle{font-size:16px;font-weight:800;line-height:1.35}
@@ -180,8 +193,23 @@
         <button class="chip" data-ai="開発案件">開発案件の進捗</button>
         <button class="chip" data-ai="営業と市場">営業と市場</button>
         <button class="chip" data-ai="製造と購買">製造と購買</button>
+        <button class="chip" data-ai="10日の流れ">10日の流れ</button>
       </div>
       <div class="hint" id="aiHint"></div>
+    </div>
+
+    <div class="panel" id="panelFull" hidden>
+      <button class="go" id="btnListen">聞く人を選ぶ</button>
+      <div id="listenBox" hidden>
+        <div class="listenTop">
+          <button id="lsDefault">標準に戻す</button>
+          <button id="lsAll">全員を選ぶ</button>
+          <button id="lsNone">すべて外す</button>
+        </div>
+        <div class="listenList" id="listenList"></div>
+        <button class="go" id="lsDone">この内容で決定</button>
+      </div>
+      <div class="hint" id="fullHint"></div>
     </div>
 
     <div class="panel" id="panelPerson" hidden>
@@ -244,7 +272,8 @@
   const LS = { bundle: "nv2_bundle", people: "nv2_people", person: "nv2_person", prefs: "nv2_prefs", pos: "nv2_pos" };
   const AI_LABELS = {
     "全体": "全体ダイジェスト", "問題とリスク": "問題とリスク", "指示と宿題": "指示と宿題",
-    "開発案件": "開発案件の進捗", "営業と市場": "営業と市場", "製造と購買": "製造と購買"
+    "開発案件": "開発案件の進捗", "営業と市場": "営業と市場", "製造と購買": "製造と購買",
+    "10日の流れ": "10日の流れ"
   };
   const CHUNK_MAX = 110;      // 1回に読み上げる長さの上限（文字）。短く区切ると途中で止まりにくく、30秒送りも細かく効く
   const SKIP_SECONDS = 30;
@@ -265,7 +294,7 @@
     bundle: lsGet(LS.bundle, null),       // 最新の日報一式 {dateFolderName, summary, full, ai, fetchedAt}
     people: lsGet(LS.people, null),       // 選べる人 {list:[{id,label}], fetchedAt}
     person: lsGet(LS.person, null),       // 読み込んだ人物の履歴 {id,label,days,order,items,from,to,fetchedAt}
-    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new" }, lsGet(LS.prefs, {})),
+    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null }, lsGet(LS.prefs, {})),
     pos: lsGet(LS.pos, {}),               // 種類ごとの再生位置 {kind: {sig, idx}}
     kind: null,
     sig: "",                              // いま表示している内容の識別（ファイル名など）。変わったら位置を先頭に戻す
@@ -296,6 +325,7 @@
       dateFolderName: d.dateFolderName,
       summary: { name: d.summary.name, text: d.summary.text },
       full: { name: d.full.name, text: d.full.text },
+      all: { name: (d.all && d.all.name) || "", text: (d.all && d.all.text) || "" },
       ai: { prefix: (d.ai && d.ai.prefix) || "", items: (d.ai && d.ai.items) || [], dateFolderName: (d.ai && d.ai.dateFolderName) || d.dateFolderName },
       fetchedAt: Date.now()
     };
@@ -369,7 +399,16 @@
     }
     if (!b) return { title: "日報", meta: "", text: "", sig: "", empty: "日報をまだ取得できていません。" };
     if (kind === "full") {
-      return { title: "全文", meta: `${b.dateFolderName}・${hhmm(b.full.name)} 収集分`, text: b.full.text, sig: b.full.name, empty: "全文版がまだありません。" };
+      const L = listenState();
+      const picked = L.rows.filter(r => r.on);
+      const text = picked.map(r => L.segs.filter(sg => sg.author === r.name).map(sg => sg.lines.join("\n")).join("\n\n")).filter(Boolean).join("\n\n");
+      return {
+        title: `全文（${picked.length}名）`,
+        meta: `${b.dateFolderName}・${hhmm(L.fileName)} 収集分・${L.custom ? "自分で選んだ人" : "標準の対象者"}`,
+        text: text,
+        sig: L.fileName + "|" + picked.map(r => r.name).join(","),
+        empty: L.segs.length ? "聞く人が1人も選ばれていません。「聞く人を選ぶ」から選んでください。" : "全文版がまだありません。"
+      };
     }
     if (kind === "summary") {
       return { title: "監視ワードの抽出", meta: `${b.dateFolderName}・${hhmm(b.summary.name)} 収集分`, text: b.summary.text, sig: b.summary.name, empty: "要約版がまだありません。" };
@@ -390,6 +429,123 @@
       sig: it ? it.name : "",
       empty: "この視点のAI要約はまだ作成されていません。毎日 19:46頃と21:46頃に作成されます。"
     };
+  }
+
+  // ===== 全文で「聞く人」を選ぶ =====
+  // 全文版（全員版）を1人分ずつに分ける [{author, lines[]}]。返信も、その人の分に含める
+  function parseSegments(text) {
+    const segs = [];
+    let cur = null;
+    (text || "").replace(/\r/g, "").split("\n").forEach(raw => {
+      const line = raw.trim();
+      const m = line.match(/^次は、(.+)さんです。$/);
+      if (m) { cur = { author: m[1], lines: [line] }; segs.push(cur); return; }
+      if (!cur || !line || line === "完了。") return;
+      cur.lines.push(line);
+    });
+    return segs;
+  }
+  const uniq = (arr) => arr.filter((v, i) => arr.indexOf(v) === i);
+
+  // いまの「聞く人」の並びと選択を返す。
+  // 自分で決めた並びがあればそれを使い、無ければ従来の対象者（全文版に載っている人）を標準にする
+  function listenState() {
+    const b = S.bundle;
+    const useAll = !!(b && b.all && b.all.text);
+    const segs = parseSegments(b ? (useAll ? b.all.text : b.full.text) : "");
+    const fileName = b ? (useAll ? b.all.name : b.full.name) : "";
+    const available = uniq(segs.map(sg => sg.author));
+    const standard = b ? uniq(parseSegments(b.full.text).map(sg => sg.author)) : [];
+    const saved = S.prefs.listen;
+    let rows;
+    if (saved && saved.order && saved.order.length) {
+      // 覚えている並び順のうち今日いる人 → そのあとに、初めて出てきた人（選択なし）
+      rows = saved.order.filter(n => available.indexOf(n) >= 0).map(n => ({ name: n, on: !!saved.on[n] }));
+      available.forEach(n => { if (saved.order.indexOf(n) < 0) rows.push({ name: n, on: false }); });
+    } else {
+      rows = available.map(n => ({ name: n, on: standard.length ? standard.indexOf(n) >= 0 : true }));
+    }
+    return { segs, fileName, rows, standard, custom: !!(saved && saved.order && saved.order.length), useAll };
+  }
+
+  let listenWork = null;   // 選択画面で編集中の並び
+
+  function drawListen() {
+    const box = $("listenList");
+    box.textContent = "";
+    listenWork.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "lrow" + (r.on ? "" : " off");
+      const lab = document.createElement("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = r.on;
+      cb.addEventListener("change", () => {
+        r.on = cb.checked;
+        if (r.on) {
+          // 新しく選んだ人は、選んである人たちの最後尾へ移す
+          const at = listenWork.indexOf(r);
+          listenWork.splice(at, 1);
+          let last = -1;
+          listenWork.forEach((x, k) => { if (x.on) last = k; });
+          listenWork.splice(last + 1, 0, r);
+          drawListen();
+        } else {
+          row.classList.toggle("off", true);
+          updateListenButton();
+        }
+      });
+      const nm = document.createElement("span");
+      nm.textContent = r.name;
+      lab.appendChild(cb); lab.appendChild(nm);
+      const up = document.createElement("button");
+      up.textContent = "▲"; up.disabled = i === 0; up.setAttribute("aria-label", r.name + "を上へ");
+      up.addEventListener("click", () => { listenWork.splice(i - 1, 0, listenWork.splice(i, 1)[0]); drawListen(); });
+      const dn = document.createElement("button");
+      dn.textContent = "▼"; dn.disabled = i === listenWork.length - 1; dn.setAttribute("aria-label", r.name + "を下へ");
+      dn.addEventListener("click", () => { listenWork.splice(i + 1, 0, listenWork.splice(i, 1)[0]); drawListen(); });
+      row.appendChild(lab); row.appendChild(up); row.appendChild(dn);
+      box.appendChild(row);
+    });
+    updateListenButton();
+  }
+
+  function updateListenButton() {
+    const open = !$("listenBox").hidden;
+    const rows = open && listenWork ? listenWork : listenState().rows;
+    const n = rows.filter(r => r.on).length;
+    $("btnListen").textContent = open ? `選択中：${n}名（${rows.length}名中）` : `聞く人を選ぶ（いま ${n}名）`;
+  }
+
+  function openListen() {
+    const box = $("listenBox");
+    if (!box.hidden) { box.hidden = true; listenWork = null; updateListenButton(); return; }
+    // 選んである人を上に集めて見せる（並べ替えの手間を減らすため。選んだ人どうしの順番はそのまま）
+    const rows = listenState().rows.map(r => ({ name: r.name, on: r.on }));
+    listenWork = rows.filter(r => r.on).concat(rows.filter(r => !r.on));
+    box.hidden = false;
+    drawListen();
+  }
+
+  function saveListen() {
+    // 上から順に読む。選択と並びを端末に覚える（次回もこのまま）。
+    // 今日いない人の設定も消さないよう、前回覚えた分のうち今回の一覧に無い人を後ろに残す
+    const prev = S.prefs.listen;
+    const order = listenWork.map(r => r.name);
+    const on = {};
+    listenWork.forEach(r => { on[r.name] = r.on; });
+    if (prev && prev.order) prev.order.forEach(n => { if (order.indexOf(n) < 0) { order.push(n); on[n] = !!prev.on[n]; } });
+    S.prefs.listen = { order: order, on: on };
+    savePrefs();
+    $("listenBox").hidden = true;
+    listenWork = null;
+    render("full");
+  }
+
+  function fullHint() {
+    const L = listenState();
+    if (!S.bundle) return "";
+    if (!L.useAll) return "今は従来の対象者だけを選べます。次の収集（19:25頃・21:09頃）から、登録している全員の中から選べるようになります。";
+    return L.custom ? "自分で選んだ人を、決めた順に読みます。設定はこの端末に保存されています。" : "標準の対象者を読んでいます。「聞く人を選ぶ」で人と順番を変えられます。";
   }
 
   // ===== 文章を読み上げの単位に区切る =====
@@ -527,6 +683,8 @@
     document.querySelectorAll("#tabs .tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
     $("panelAi").hidden = tab !== "ai";
     $("panelPerson").hidden = tab !== "person";
+    $("panelFull").hidden = tab !== "full";
+    if (tab === "full") { updateListenButton(); $("fullHint").textContent = fullHint(); }
     const items = (S.bundle && S.bundle.ai && S.bundle.ai.items) || [];
     document.querySelectorAll("#aiChips .chip").forEach(c => {
       c.classList.toggle("on", S.kind === "ai:" + c.dataset.ai);
@@ -767,9 +925,10 @@
   async function refresh(manual) {
     setStatus("最新の日報を確認中…");
     try {
-      const before = S.bundle ? [S.bundle.full.name, S.bundle.summary.name, S.bundle.ai.prefix, (S.bundle.ai.items || []).length].join("|") : "";
+      const sigOf = (b) => [b.full.name, b.summary.name, (b.all && b.all.name) || "", b.ai.prefix, (b.ai.items || []).length].join("|");
+      const before = S.bundle ? sigOf(S.bundle) : "";
       await fetchLatest();
-      const after = [S.bundle.full.name, S.bundle.summary.name, S.bundle.ai.prefix, (S.bundle.ai.items || []).length].join("|");
+      const after = sigOf(S.bundle);
       showMisc();
       if (S.kind !== "person") {
         if (before !== after || !S.chunks.length) {
@@ -819,6 +978,16 @@
   }));
   document.querySelectorAll("#aiChips .chip").forEach(c => c.addEventListener("click", () => render("ai:" + c.dataset.ai)));
   $("btnPerson").addEventListener("click", loadPerson);
+  $("btnListen").addEventListener("click", openListen);
+  $("lsDone").addEventListener("click", saveListen);
+  $("lsAll").addEventListener("click", () => { listenWork.forEach(r => { r.on = true; }); drawListen(); });
+  $("lsNone").addEventListener("click", () => { listenWork.forEach(r => { r.on = false; }); drawListen(); });
+  $("lsDefault").addEventListener("click", () => {
+    // 覚えた設定を消して、従来の対象者・従来の順番に戻す
+    S.prefs.listen = null; savePrefs();
+    $("listenBox").hidden = true; listenWork = null;
+    render("full");
+  });
   $("personOrder").addEventListener("change", () => {
     S.prefs.order = $("personOrder").value; savePrefs();
     if (S.person) { S.person.order = S.prefs.order; lsSet(LS.person, S.person); if (S.kind === "person") render("person", { fromTop: true }); }
