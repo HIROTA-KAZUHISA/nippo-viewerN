@@ -50,11 +50,13 @@
     }
 
     /* 何を聞くか */
-    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+    .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:8px}
     .tab{
       border:1px solid var(--line);background:var(--panel);
-      border-radius:12px;padding:12px 4px;font-size:14px;font-weight:700;cursor:pointer;min-height:48px;
+      border-radius:12px;padding:10px 2px;font-size:13px;font-weight:700;cursor:pointer;min-height:48px;line-height:1.25;
     }
+    @media (max-width:400px){.tab{font-size:12px}}
+    .searchRow{display:grid;grid-template-columns:1fr;gap:8px}
     .tab.on{background:linear-gradient(135deg, rgba(124,92,255,.6), rgba(36,211,238,.42));border-color:rgba(255,255,255,.4)}
     .panel{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:10px;margin-bottom:10px}
     .panel[hidden]{display:none}
@@ -183,6 +185,7 @@
       <button class="tab" data-tab="full">全文</button>
       <button class="tab" data-tab="summary">監視ワード</button>
       <button class="tab" data-tab="person">人物</button>
+      <button class="tab" data-tab="search">検索</button>
     </div>
 
     <div class="panel" id="panelAi" hidden>
@@ -227,6 +230,21 @@
       <div class="hint" id="personHint">氏名と「過去何日」を選んで「読み込む」を押すと、その人の日報だけを並べます。</div>
     </div>
 
+    <div class="panel" id="panelSearch" hidden>
+      <div class="searchRow">
+        <input class="field" id="searchWord" type="search" enterkeyhint="search" placeholder="探す言葉（例：TWPF 六角）" aria-label="探す言葉">
+      </div>
+      <div class="personRow" style="margin-top:8px">
+        <select class="field" id="searchOrder" aria-label="並び順">
+          <option value="old">古い日から</option>
+          <option value="new">新しい日から</option>
+        </select>
+        <label class="daysBox">過去 <input class="field" id="searchDays" type="number" inputmode="numeric" min="1" max="60" value="10" aria-label="過去何日"> 日</label>
+      </div>
+      <button class="go" id="btnSearch" style="width:100%;margin-top:8px">探す</button>
+      <div class="hint" id="searchHint">言葉を入れて「探す」を押すと、その言葉が出てくる日報を、日付と人ごとに並べます。空白で区切ると、すべてを含むものだけになります。</div>
+    </div>
+
     <div class="now">
       <div class="nowTitle" id="nowTitle">日報を読み込んでいます…</div>
       <div class="nowMeta" id="nowMeta"></div>
@@ -269,7 +287,7 @@
 <script>
   // ===== 設定 =====
   const APPS_SCRIPT_WEB_URL = "https://script.google.com/macros/s/AKfycbwn8Kqw6dReBh97ki94LzZYnd0qo5Zo6xXiwrbak_MDO48k0X_NxyEyt6cZZ3Q7efj4kQ/exec";
-  const LS = { bundle: "nv2_bundle", people: "nv2_people", person: "nv2_person", prefs: "nv2_prefs", pos: "nv2_pos" };
+  const LS = { bundle: "nv2_bundle", people: "nv2_people", person: "nv2_person", search: "nv2_search", prefs: "nv2_prefs", pos: "nv2_pos" };
   const AI_LABELS = {
     "全体": "全体ダイジェスト", "問題とリスク": "問題とリスク", "指示と宿題": "指示と宿題",
     "開発案件": "開発案件の進捗", "営業と市場": "営業と市場", "製造と購買": "製造と購買",
@@ -294,7 +312,8 @@
     bundle: lsGet(LS.bundle, null),       // 最新の日報一式 {dateFolderName, summary, full, ai, fetchedAt}
     people: lsGet(LS.people, null),       // 選べる人 {list:[{id,label}], fetchedAt}
     person: lsGet(LS.person, null),       // 読み込んだ人物の履歴 {id,label,days,order,items,from,to,fetchedAt}
-    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null }, lsGet(LS.prefs, {})),
+    search: lsGet(LS.search, null),       // 言葉で探した結果 {query,days,order,hits,from,to,daysRead,fetchedAt}
+    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null, searchWord: "", searchDays: 10, searchOrder: "old" }, lsGet(LS.prefs, {})),
     pos: lsGet(LS.pos, {}),               // 種類ごとの再生位置 {kind: {sig, idx}}
     kind: null,
     sig: "",                              // いま表示している内容の識別（ファイル名など）。変わったら位置を先頭に戻す
@@ -352,6 +371,18 @@
     return d;
   }
 
+  // 探す言葉はアドレスに載せず、本文で送る
+  async function fetchSearch(query, days) {
+    const r = await fetch(`${APPS_SCRIPT_WEB_URL}?action=searchReports`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "searchReports", query: query, days: days })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || "取得に失敗しました");
+    return d;
+  }
+
   // ===== 表示する内容を決める =====
   const isAi = (kind) => typeof kind === "string" && kind.indexOf("ai:") === 0;
   const tabOf = (kind) => isAi(kind) ? "ai" : kind;
@@ -382,6 +413,22 @@
     return out.join("\n");
   }
 
+  // 探した結果を、読み上げ用の1本の文章にする。「■ 日付　氏名さん」が1件の区切り
+  function searchText(q) {
+    const hits = q.order === "old" ? q.hits.slice().reverse() : q.hits;
+    const out = [];
+    hits.forEach(h => {
+      out.push(`■ ${dayLabel(h.key)}　${h.author}さん`);
+      h.parts.forEach(pt => out.push(pt));
+      if (h.replies && h.replies.length) {
+        out.push(`（返信 ${h.replies.length}件）`);
+        h.replies.forEach(r => out.push(r));
+      }
+      out.push("");
+    });
+    return out.join("\n");
+  }
+
   // 種類ごとに {title, meta, text, sig, empty} を返す
   function getSource(kind) {
     const b = S.bundle;
@@ -395,6 +442,18 @@
         text: personText(p),
         sig: `person|${p.id}|${p.days}|${p.order}|${p.items.length}|${p.items[0] ? p.items[0].key : ""}`,
         empty: "この期間に、この人の日報は見つかりませんでした。"
+      };
+    }
+    if (kind === "search") {
+      const q = S.search;
+      if (!q) return { title: "言葉で探す", meta: "", text: "", sig: "", empty: "探す言葉を入れて「探す」を押してください。" };
+      const people = uniq(q.hits.map(h => h.author)).length;
+      return {
+        title: `「${q.query}」　過去${q.days}日`,
+        meta: `${dayLabel(q.from)} 〜 ${dayLabel(q.to)}・${q.hits.length}件（${people}名）・${q.order === "old" ? "古い日から" : "新しい日から"}`,
+        text: searchText(q),
+        sig: `search|${q.query}|${q.days}|${q.order}|${q.hits.length}`,
+        empty: "この期間の日報に、その言葉は見つかりませんでした。"
       };
     }
     if (!b) return { title: "日報", meta: "", text: "", sig: "", empty: "日報をまだ取得できていません。" };
@@ -580,7 +639,7 @@
   // 項目（次の人・次の見出し・次の日）の先頭になる行か
   function isSectionLine(line, kind) {
     if (kind === "full") return /^次は、.+さんです。$/.test(line);
-    if (kind === "person") return /^■ /.test(line);
+    if (kind === "person" || kind === "search") return /^■ /.test(line);
     if (kind === "summary") return /^【.+】/.test(line) || /関連する投稿があります。$/.test(line) || line === "続いて";
     return /^【.+】/.test(line);
   }
@@ -667,7 +726,7 @@
       box.appendChild(frag);
     }
 
-    const unit = kind === "full" ? "人" : (kind === "person" ? "日" : "項目");
+    const unit = kind === "full" ? "人" : (kind === "person" ? "日" : (kind === "search" ? "件" : "項目"));
     $("lblPrev").textContent = `前の${unit}`;
     $("lblNext").textContent = `次の${unit}`;
     $("seek").max = Math.max(0, S.chunks.length - 1);
@@ -684,6 +743,7 @@
     $("panelAi").hidden = tab !== "ai";
     $("panelPerson").hidden = tab !== "person";
     $("panelFull").hidden = tab !== "full";
+    $("panelSearch").hidden = tab !== "search";
     if (tab === "full") { updateListenButton(); $("fullHint").textContent = fullHint(); }
     const items = (S.bundle && S.bundle.ai && S.bundle.ai.items) || [];
     document.querySelectorAll("#aiChips .chip").forEach(c => {
@@ -921,6 +981,39 @@
     }
   }
 
+  // ===== 言葉で探す =====
+  async function runSearch() {
+    const query = $("searchWord").value.trim();
+    if (!query) { $("searchHint").textContent = "探す言葉を入れてください。"; return; }
+    let days = parseInt($("searchDays").value, 10);
+    if (!(days >= 1)) days = 10;
+    if (days > 60) days = 60;
+    $("searchDays").value = days;
+    const order = $("searchOrder").value;
+    S.prefs.searchWord = query; S.prefs.searchDays = days; S.prefs.searchOrder = order; savePrefs();
+
+    const btn = $("btnSearch");
+    btn.disabled = true; btn.textContent = "探しています…（10〜20秒）";
+    setStatus("日報を検索中…");
+    $("searchWord").blur();
+    try {
+      const d = await fetchSearch(query, days);
+      S.search = { query: query, days: d.days, order: order, hits: d.hits, from: d.from, to: d.to, daysRead: d.daysRead, fetchedAt: Date.now() };
+      lsSet(LS.search, S.search);
+      render("search", { fromTop: true });
+      const people = uniq(d.hits.map(h => h.author));
+      $("searchHint").textContent = d.hits.length
+        ? `${d.daysRead}日分の日報から ${d.hits.length}件見つかりました（${people.slice(0, 6).join("、")}${people.length > 6 ? " ほか" : ""}）。下の「再生」で読み上げます。`
+        : `${d.daysRead}日分の日報を探しましたが、見つかりませんでした。言葉を短くするか、日数を増やしてみてください。`;
+      setStatus("検索OK");
+    } catch (e) {
+      setStatus("検索失敗");
+      $("searchHint").textContent = "検索に失敗しました：" + e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = "探す";
+    }
+  }
+
   // ===== 取得（開いたら自動で行う） =====
   async function refresh(manual) {
     setStatus("最新の日報を確認中…");
@@ -930,7 +1023,7 @@
       await fetchLatest();
       const after = sigOf(S.bundle);
       showMisc();
-      if (S.kind !== "person") {
+      if (S.kind !== "person" && S.kind !== "search") {
         if (before !== after || !S.chunks.length) {
           // 再生中は止めない。次に切り替えたときに新しい内容になる
           if (!S.playing) render(S.kind || S.prefs.kind);
@@ -945,7 +1038,7 @@
     } catch (e) {
       setStatus(S.bundle ? "取得失敗（前回分を表示）" : "取得失敗");
       if (manual) alert("取得に失敗しました：" + e.message);
-      if (!S.bundle && S.kind !== "person") render(S.prefs.kind);
+      if (!S.bundle && S.kind !== "person" && S.kind !== "search") render(S.prefs.kind);
     }
   }
 
@@ -978,6 +1071,12 @@
   }));
   document.querySelectorAll("#aiChips .chip").forEach(c => c.addEventListener("click", () => render("ai:" + c.dataset.ai)));
   $("btnPerson").addEventListener("click", loadPerson);
+  $("btnSearch").addEventListener("click", runSearch);
+  $("searchWord").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); runSearch(); } });
+  $("searchOrder").addEventListener("change", () => {
+    S.prefs.searchOrder = $("searchOrder").value; savePrefs();
+    if (S.search) { S.search.order = S.prefs.searchOrder; lsSet(LS.search, S.search); if (S.kind === "search") render("search", { fromTop: true }); }
+  });
   $("btnListen").addEventListener("click", openListen);
   $("lsDone").addEventListener("click", saveListen);
   $("lsAll").addEventListener("click", () => { listenWork.forEach(r => { r.on = true; }); drawListen(); });
@@ -1019,6 +1118,9 @@
     $("rateVal").textContent = rate().toFixed(2);
     $("personDays").value = S.prefs.days || 7;
     $("personOrder").value = S.prefs.order || "new";
+    $("searchWord").value = S.prefs.searchWord || "";
+    $("searchDays").value = S.prefs.searchDays || 10;
+    $("searchOrder").value = S.prefs.searchOrder || "old";
     fillPeople();
     if ("speechSynthesis" in window) {
       pickVoice();
@@ -1027,6 +1129,7 @@
     // まず前回の内容をすぐ表示し、裏で最新を取りに行く（ボタンを押す必要はない）
     let kind = S.prefs.kind || "ai:全体";
     if (kind === "person" && !S.person) kind = "ai:全体";
+    if (kind === "search" && !S.search) kind = "ai:全体";
     render(kind);
     showMisc();
     keepAwake();
