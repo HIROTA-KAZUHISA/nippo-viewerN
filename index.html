@@ -101,7 +101,13 @@
     .topbar{display:flex;align-items:center;gap:8px;margin:0 0 10px}
     .topbar button{flex:0 0 auto;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);border-radius:10px;min-height:44px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
     .topbar button:disabled{opacity:.5}
-    .topbar span{font-size:12px;color:var(--muted);line-height:1.4;min-width:0}
+    .topbar span{font-size:12px;color:var(--muted);line-height:1.4;min-width:0;flex:1}
+    .topbar .setBtn{background:linear-gradient(135deg, rgba(124,92,255,.55), rgba(36,211,238,.4));border-color:rgba(255,255,255,.35)}
+    .settings{border-color:rgba(255,255,255,.32);background:rgba(20,26,52,.92)}
+    .setHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px}
+    .setHead .miscBtn{min-height:40px;padding:4px 14px}
+    .setSec{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+    .setSec h3{margin:0 0 8px;font-size:14px;color:#cfd8ff}
     .histRow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .histRow button{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:999px;min-height:36px;padding:4px 12px;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .histRow button.clear{color:var(--muted);border-style:dashed}
@@ -200,6 +206,48 @@
     <div class="topbar">
       <button id="btnExecuteTop">今すぐ収集</button>
       <span id="collectInfo"></span>
+      <button id="btnSettings" class="setBtn" aria-expanded="false">⚙ 設定</button>
+    </div>
+
+    <div class="panel settings" id="panelSettings" hidden>
+      <div class="setHead">
+        <strong>設定</strong>
+        <button class="miscBtn" id="btnSettingsClose">閉じる</button>
+      </div>
+
+      <section class="setSec">
+        <h3>画面の動き</h3>
+        <button class="go" id="btnFollow" style="width:100%">画面追従：入</button>
+        <div class="hint">「入」は、読んでいる所に合わせて画面が動きます。「切」は、先頭の画面のまま動きません。</div>
+      </section>
+
+      <section class="setSec">
+        <h3>読み替え辞書</h3>
+        <div class="hint" style="margin-top:0">読み上げのときに、書かれている言葉を別の言い方で読ませます。</div>
+        <div class="cfgList" id="readList"></div>
+        <div class="cfgForm">
+          <input class="field" id="readFrom" maxlength="40" placeholder="書かれている言葉" aria-label="書かれている言葉">
+          <input class="field" id="readTo" maxlength="60" placeholder="読ませたい言い方" aria-label="読ませたい言い方">
+        </div>
+        <button class="go" id="readAdd" style="width:100%;margin-top:6px">辞書に登録</button>
+        <div class="hint" id="readHint">登録するとすぐ読み上げに効きます（過去の日報にも効きます）。画面の文字は変わりません。どの端末でも同じ辞書を使います。</div>
+      </section>
+
+      <section class="setSec">
+        <h3>呼び名の対応表</h3>
+        <div class="hint" style="margin-top:0">型式と呼び名の組です。AIが日報から見つけて足していきます。</div>
+        <div class="cfgList" id="aliasList"></div>
+        <div class="hint" id="aliasHint"></div>
+      </section>
+
+      <section class="setSec">
+        <h3>日報の取得</h3>
+        <div class="miscRow" style="margin-top:0">
+          <button class="miscBtn" id="btnRefresh">最新の日報を取り直す</button>
+          <button class="miscBtn" id="btnExecute">掲示板から今すぐ収集する</button>
+        </div>
+        <div class="hint" id="miscInfo"></div>
+      </section>
     </div>
 
     <div class="tabs" id="tabs">
@@ -276,31 +324,6 @@
 
     <div class="content" id="content"><p class="empty">読み込み中です。</p></div>
 
-    <details class="misc">
-      <summary>その他（取り直し・収集の実行）</summary>
-      <div class="miscRow">
-        <button class="miscBtn" id="btnRefresh">最新の日報を取り直す</button>
-        <button class="miscBtn" id="btnExecute">掲示板から今すぐ収集する</button>
-      </div>
-      <div class="hint" id="miscInfo"></div>
-    </details>
-
-    <details class="misc">
-      <summary>読み替え辞書（読み上げのときに言い換える）</summary>
-      <div class="cfgList" id="readList"></div>
-      <div class="cfgForm">
-        <input class="field" id="readFrom" maxlength="40" placeholder="書かれている言葉" aria-label="書かれている言葉">
-        <input class="field" id="readTo" maxlength="60" placeholder="読ませたい言い方" aria-label="読ませたい言い方">
-      </div>
-      <button class="go" id="readAdd" style="width:100%;margin-top:6px">辞書に登録</button>
-      <div class="hint" id="readHint">登録するとすぐ読み上げに効きます（過去の日報にも効きます）。画面の文字は変わりません。どの端末でも同じ辞書を使います。</div>
-    </details>
-
-    <details class="misc">
-      <summary>呼び名の対応表（AIが日報から作成）</summary>
-      <div class="cfgList" id="aliasList"></div>
-      <div class="hint" id="aliasHint"></div>
-    </details>
     <footer>NIPPO Viewer</footer>
   </div>
 
@@ -321,7 +344,6 @@
         <span>速度</span>
         <input id="rate" type="range" min="0.7" max="2" step="0.05" value="1" aria-label="読み上げ速度">
         <span class="val" id="rateVal">1.00</span>
-        <button class="follow" id="btnFollow">画面追従：入</button>
       </div>
     </div>
   </div>
@@ -1253,6 +1275,16 @@
   });
   $("btnPerson").addEventListener("click", loadPerson);
   $("btnExecuteTop").addEventListener("click", executeReport);
+  function toggleSettings(open) {
+    const box = $("panelSettings");
+    const show = open === undefined ? box.hidden : open;
+    box.hidden = !show;
+    $("btnSettings").setAttribute("aria-expanded", show ? "true" : "false");
+    $("btnSettings").textContent = show ? "⚙ 閉じる" : "⚙ 設定";
+    if (show) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  $("btnSettings").addEventListener("click", () => toggleSettings());
+  $("btnSettingsClose").addEventListener("click", () => toggleSettings(false));
   $("btnTopics").addEventListener("click", () => { $("topicBox").hidden = !$("topicBox").hidden; });
   $("topicAdd").addEventListener("click", () => {
     const name = $("topicName").value.trim(), desc = $("topicDesc").value.trim();
@@ -1270,7 +1302,7 @@
   function drawFollow() {
     const on = S.prefs.follow !== false;
     $("btnFollow").textContent = on ? "画面追従：入" : "画面追従：切";
-    $("btnFollow").classList.toggle("off", !on);
+    $("btnFollow").style.opacity = on ? "1" : ".6";
   }
   $("btnFollow").addEventListener("click", () => {
     S.prefs.follow = !(S.prefs.follow !== false);
