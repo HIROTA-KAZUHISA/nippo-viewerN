@@ -98,6 +98,23 @@
     #lsDone{width:100%;margin-top:8px}
     #btnListen{width:100%}
 
+    .topbar{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+    .topbar button{flex:0 0 auto;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);border-radius:10px;min-height:44px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+    .topbar button:disabled{opacity:.5}
+    .topbar span{font-size:12px;color:var(--muted);line-height:1.4;min-width:0}
+    .histRow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .histRow button{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:999px;min-height:36px;padding:4px 12px;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .histRow button.clear{color:var(--muted);border-style:dashed}
+    .cfgList{margin:8px 0;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.2);max-height:40vh;overflow:auto}
+    .cfgList:empty{display:none}
+    .crow{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px;line-height:1.45}
+    .crow:last-child{border-bottom:0}
+    .crow small{display:block;color:var(--muted);font-size:12px}
+    .crow button{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;height:40px;font-size:13px;cursor:pointer}
+    .cfgForm{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+    .follow{flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:999px;min-height:30px;padding:2px 10px;font-size:12px;cursor:pointer;color:var(--text)}
+    .follow.off{color:var(--muted);border-style:dashed}
+
     /* いま流しているもの */
     .now{margin:2px 2px 8px}
     .nowTitle{font-size:16px;font-weight:800;line-height:1.35}
@@ -180,6 +197,11 @@
       <div class="status" id="status">準備中…</div>
     </header>
 
+    <div class="topbar">
+      <button id="btnExecuteTop">今すぐ収集</button>
+      <span id="collectInfo"></span>
+    </div>
+
     <div class="tabs" id="tabs">
       <button class="tab" data-tab="ai">AI要約</button>
       <button class="tab" data-tab="full">全文</button>
@@ -189,16 +211,16 @@
     </div>
 
     <div class="panel" id="panelAi" hidden>
-      <div class="chips" id="aiChips">
-        <button class="chip" data-ai="全体">全体ダイジェスト</button>
-        <button class="chip" data-ai="問題とリスク">問題とリスク</button>
-        <button class="chip" data-ai="指示と宿題">指示と宿題</button>
-        <button class="chip" data-ai="開発案件">開発案件の進捗</button>
-        <button class="chip" data-ai="営業と市場">営業と市場</button>
-        <button class="chip" data-ai="製造と購買">製造と購買</button>
-        <button class="chip" data-ai="10日の流れ">10日の流れ</button>
-      </div>
+      <div class="chips" id="aiChips"></div>
       <div class="hint" id="aiHint"></div>
+      <button class="miscBtn" id="btnTopics" style="width:100%;margin-top:8px">項目を追加・変更</button>
+      <div id="topicBox" hidden>
+        <div class="cfgList" id="topicList"></div>
+        <input class="field" id="topicName" maxlength="20" placeholder="項目の名前（例：安全）" aria-label="項目の名前">
+        <input class="field" id="topicDesc" maxlength="120" placeholder="拾ってほしい内容（例：ヒヤリハットや安全対策の話）" aria-label="拾ってほしい内容" style="margin-top:6px">
+        <button class="go" id="topicAdd" style="width:100%;margin-top:6px">この項目を追加</button>
+        <div class="hint" id="topicHint">追加した項目は、次のAI要約（毎日 19:46頃・21:46頃）から作られます。10件まで登録できます。</div>
+      </div>
     </div>
 
     <div class="panel" id="panelFull" hidden>
@@ -232,8 +254,10 @@
 
     <div class="panel" id="panelSearch" hidden>
       <div class="searchRow">
-        <input class="field" id="searchWord" type="search" enterkeyhint="search" placeholder="探す言葉（例：TWPF 六角）" aria-label="探す言葉">
+        <input class="field" id="searchWord" type="search" enterkeyhint="search" placeholder="探す言葉（例：TWPF 六角）" aria-label="探す言葉" list="searchSuggest" autocomplete="off">
+        <datalist id="searchSuggest"></datalist>
       </div>
+      <div class="histRow" id="searchHist"></div>
       <div class="personRow" style="margin-top:8px">
         <select class="field" id="searchOrder" aria-label="並び順">
           <option value="old">古い日から</option>
@@ -260,6 +284,23 @@
       </div>
       <div class="hint" id="miscInfo"></div>
     </details>
+
+    <details class="misc">
+      <summary>読み替え辞書（読み上げのときに言い換える）</summary>
+      <div class="cfgList" id="readList"></div>
+      <div class="cfgForm">
+        <input class="field" id="readFrom" maxlength="40" placeholder="書かれている言葉" aria-label="書かれている言葉">
+        <input class="field" id="readTo" maxlength="60" placeholder="読ませたい言い方" aria-label="読ませたい言い方">
+      </div>
+      <button class="go" id="readAdd" style="width:100%;margin-top:6px">辞書に登録</button>
+      <div class="hint" id="readHint">登録するとすぐ読み上げに効きます（過去の日報にも効きます）。画面の文字は変わりません。どの端末でも同じ辞書を使います。</div>
+    </details>
+
+    <details class="misc">
+      <summary>呼び名の対応表（AIが日報から作成）</summary>
+      <div class="cfgList" id="aliasList"></div>
+      <div class="hint" id="aliasHint"></div>
+    </details>
     <footer>NIPPO Viewer</footer>
   </div>
 
@@ -280,6 +321,7 @@
         <span>速度</span>
         <input id="rate" type="range" min="0.7" max="2" step="0.05" value="1" aria-label="読み上げ速度">
         <span class="val" id="rateVal">1.00</span>
+        <button class="follow" id="btnFollow">画面追従：入</button>
       </div>
     </div>
   </div>
@@ -313,7 +355,7 @@
     people: lsGet(LS.people, null),       // 選べる人 {list:[{id,label}], fetchedAt}
     person: lsGet(LS.person, null),       // 読み込んだ人物の履歴 {id,label,days,order,items,from,to,fetchedAt}
     search: lsGet(LS.search, null),       // 言葉で探した結果 {query,days,order,hits,from,to,daysRead,fetchedAt}
-    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null, searchWord: "", searchDays: 10, searchOrder: "old" }, lsGet(LS.prefs, {})),
+    prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null, searchWord: "", searchDays: 10, searchOrder: "old", searchHistory: [], follow: true }, lsGet(LS.prefs, {})),
     pos: lsGet(LS.pos, {}),               // 種類ごとの再生位置 {kind: {sig, idx}}
     kind: null,
     sig: "",                              // いま表示している内容の識別（ファイル名など）。変わったら位置を先頭に戻す
@@ -345,6 +387,7 @@
       summary: { name: d.summary.name, text: d.summary.text },
       full: { name: d.full.name, text: d.full.text },
       all: { name: (d.all && d.all.name) || "", text: (d.all && d.all.text) || "" },
+      settings: d.settings || (S.bundle && S.bundle.settings) || null,
       ai: { prefix: (d.ai && d.ai.prefix) || "", items: (d.ai && d.ai.items) || [], dateFolderName: (d.ai && d.ai.dateFolderName) || d.dateFolderName },
       fetchedAt: Date.now()
     };
@@ -371,17 +414,30 @@
     return d;
   }
 
-  // 探す言葉はアドレスに載せず、本文で送る
-  async function fetchSearch(query, days) {
-    const r = await fetch(`${APPS_SCRIPT_WEB_URL}?action=searchReports`, {
+  // 中身はアドレスに載せず、本文で送る
+  async function apiPost(action, obj) {
+    const r = await fetch(`${APPS_SCRIPT_WEB_URL}?action=${action}`, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "searchReports", query: query, days: days })
+      body: JSON.stringify(Object.assign({ action: action }, obj))
     });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || "取得に失敗しました");
+    if (!d.success) throw new Error(d.message || "処理に失敗しました");
     return d;
   }
+  const fetchSearch = (query, days) => apiPost("searchReports", { query: query, days: days });
+
+  // ===== 共通の設定（読み替え辞書・AI要約の追加項目・呼び名の対応表） =====
+  function cfg() {
+    const st = (S.bundle && S.bundle.settings) || {};
+    return { readings: st.readings || [], topics: st.topics || [], aliases: st.aliases || [], aliasesUpdated: st.aliasesUpdated || "" };
+  }
+  function setCfg(settings) {
+    if (!S.bundle) S.bundle = { dateFolderName: "", summary: { name: "", text: "" }, full: { name: "", text: "" }, all: { name: "", text: "" }, ai: { prefix: "", items: [] } };
+    S.bundle.settings = settings;
+    lsSet(LS.bundle, S.bundle);
+  }
+  const aiLabel = (key) => AI_LABELS[key] || (key.indexOf("追加_") === 0 ? key.slice(3) : key);
 
   // ===== 表示する内容を決める =====
   const isAi = (kind) => typeof kind === "string" && kind.indexOf("ai:") === 0;
@@ -482,11 +538,13 @@
       meta += `（最新の ${aiDate !== b.dateFolderName ? b.dateFolderName + " " : ""}${fullTime} 収集分のAI要約はまだありません）`;
     }
     return {
-      title: `AI要約・${AI_LABELS[key] || key}`,
+      title: `AI要約・${aiLabel(key)}`,
       meta: it ? meta : b.dateFolderName,
       text: it ? it.text : "",
       sig: it ? it.name : "",
-      empty: "この視点のAI要約はまだ作成されていません。毎日 19:46頃と21:46頃に作成されます。"
+      empty: key.indexOf("追加_") === 0
+        ? "この項目のAI要約はまだありません。登録したあと、次のAI要約（毎日 19:46頃・21:46頃）から作られます。"
+        : "この視点のAI要約はまだ作成されていません。毎日 19:46頃と21:46頃に作成されます。"
     };
   }
 
@@ -646,6 +704,10 @@
 
   // 読み上げ用に、記号などを読みやすく直す（表示は変えない）
   function toSpeech(text) {
+    // 読み替え辞書（長い言葉から先に当てる）
+    cfg().readings.slice().sort((a, b) => b.from.length - a.from.length).forEach(r => {
+      if (r.from && text.indexOf(r.from) >= 0) text = text.split(r.from).join(r.to || "");
+    });
     return text
       .replace(/^■ /, "")
       .replace(/（([日月火水木金土])）/g, "、$1曜日。")
@@ -746,9 +808,17 @@
     $("panelSearch").hidden = tab !== "search";
     if (tab === "full") { updateListenButton(); $("fullHint").textContent = fullHint(); }
     const items = (S.bundle && S.bundle.ai && S.bundle.ai.items) || [];
-    document.querySelectorAll("#aiChips .chip").forEach(c => {
-      c.classList.toggle("on", S.kind === "ai:" + c.dataset.ai);
-      c.classList.toggle("missing", !!S.bundle && !items.some(it => it.key === c.dataset.ai));
+    const keys = Object.keys(AI_LABELS).concat(cfg().topics.map(tp => "追加_" + tp.name));
+    const chipBox = $("aiChips");
+    chipBox.textContent = "";
+    keys.forEach(key => {
+      const c = document.createElement("button");
+      c.className = "chip";
+      c.dataset.ai = key;
+      c.textContent = aiLabel(key);
+      c.classList.toggle("on", S.kind === "ai:" + key);
+      c.classList.toggle("missing", !!S.bundle && !items.some(it => it.key === key));
+      chipBox.appendChild(c);
     });
     $("aiHint").textContent = (S.bundle && !items.length) ? "この日のAI要約はまだ作成されていません（毎日 19:46頃と21:46頃に作成）。" : "";
     $("aiHint").style.display = $("aiHint").textContent ? "" : "none";
@@ -770,7 +840,7 @@
     const cur = box.querySelector(`span[data-i="${S.idx}"]`);
     if (cur) {
       cur.classList.add("cur");
-      if (scroll) cur.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (scroll && S.prefs.follow !== false) cur.scrollIntoView({ block: "center", behavior: "smooth" });
     }
     $("seek").value = S.idx;
     const remain = (S.totalChars - S.cum[S.idx]) / (S.cps * rate());
@@ -930,6 +1000,10 @@
   function showMisc() {
     const wake = !("wakeLock" in navigator) ? "この端末のブラウザでは使えません" : (S.wake ? "有効" : "操作すると有効になります");
     $("miscInfo").textContent = `最後に取得：${fmtDateTime(S.bundle && S.bundle.fetchedAt)}　／　画面を点けたままにする：${wake}`;
+    const b = S.bundle;
+    $("collectInfo").textContent = (b && b.full && b.full.name)
+      ? `最後の収集：${b.dateFolderName} ${hhmm(b.full.name)}（定刻は 19:25頃・21:09頃）`
+      : "定刻は 19:25頃・21:09頃";
   }
 
   // ===== 人物 =====
@@ -981,6 +1055,98 @@
     }
   }
 
+  // ===== 設定の画面（辞書・追加項目・呼び名の対応表・検索の履歴） =====
+  function crow(main, sub, onDelete) {
+    const row = document.createElement("div");
+    row.className = "crow";
+    const txt = document.createElement("div");
+    txt.textContent = main;
+    if (sub) { const sm = document.createElement("small"); sm.textContent = sub; txt.appendChild(sm); }
+    row.appendChild(txt);
+    if (onDelete) {
+      const b = document.createElement("button");
+      b.textContent = "削除";
+      b.addEventListener("click", onDelete);
+      row.appendChild(b);
+    } else {
+      row.style.gridTemplateColumns = "1fr";
+    }
+    return row;
+  }
+
+  function drawSettingsUi() {
+    const c = cfg();
+    // 読み替え辞書
+    const rl = $("readList");
+    rl.textContent = "";
+    c.readings.forEach((r, i) => rl.appendChild(crow(`${r.from} → ${r.to || "（読まない）"}`, "", () => saveReadingsList(c.readings.filter((x, k) => k !== i), "削除しました。"))));
+    // AI要約の追加項目
+    const tl = $("topicList");
+    tl.textContent = "";
+    c.topics.forEach((tp, i) => tl.appendChild(crow(tp.name, tp.desc, () => saveTopicsList(c.topics.filter((x, k) => k !== i), "削除しました。"))));
+    // 呼び名の対応表
+    const al = $("aliasList");
+    al.textContent = "";
+    c.aliases.forEach(g => al.appendChild(crow(g.words.join(" ＝ "), g.note || "", null)));
+    $("aliasHint").textContent = c.aliases.length
+      ? `検索のとき、ここに載っている言葉は仲間の言葉でも一緒に探します。${c.aliasesUpdated ? "最後の更新：" + c.aliasesUpdated : ""}`
+      : "まだありません。AI要約を作るとき（毎日 19:46頃・21:46頃）に、日報の中から型式と呼び名の組を見つけて少しずつ足していきます。";
+    drawSearchAids();
+  }
+
+  function drawSearchAids() {
+    const hist = S.prefs.searchHistory || [];
+    const box = $("searchHist");
+    box.textContent = "";
+    hist.slice(0, 10).forEach(q => {
+      const b = document.createElement("button");
+      b.textContent = q;
+      b.addEventListener("click", () => { $("searchWord").value = q; runSearch(); });
+      box.appendChild(b);
+    });
+    if (hist.length) {
+      const cl = document.createElement("button");
+      cl.className = "clear";
+      cl.textContent = "履歴を消す";
+      cl.addEventListener("click", () => { S.prefs.searchHistory = []; savePrefs(); drawSearchAids(); });
+      box.appendChild(cl);
+    }
+    // 入力の候補：履歴と、呼び名の対応表の言葉
+    const dl = $("searchSuggest");
+    dl.textContent = "";
+    const words = hist.slice();
+    cfg().aliases.forEach(g => g.words.forEach(w => { if (words.indexOf(w) < 0) words.push(w); }));
+    words.slice(0, 80).forEach(w => { const o = document.createElement("option"); o.value = w; dl.appendChild(o); });
+  }
+
+  async function saveReadingsList(items, okMsg) {
+    $("readHint").textContent = "保存しています…";
+    try {
+      const d = await apiPost("saveReadings", { items: items });
+      setCfg(d.settings);
+      drawSettingsUi();
+      $("readHint").textContent = okMsg + " 読み上げにすぐ反映されます。";
+      if (S.kind && !S.playing) render(S.kind);   // 今の画面の読みを作り直す（再生中は次の切り替えから）
+    } catch (e) {
+      $("readHint").textContent = "保存に失敗しました：" + e.message;
+    }
+  }
+
+  async function saveTopicsList(items, okMsg) {
+    $("topicHint").textContent = "保存しています…";
+    try {
+      const d = await apiPost("saveTopics", { items: items });
+      setCfg(d.settings);
+      drawSettingsUi();
+      // 見ていた項目が削除されたら、全体ダイジェストに戻す
+      if (isAi(S.kind) && S.kind.indexOf("ai:追加_") === 0 && !d.settings.topics.some(tp => "ai:追加_" + tp.name === S.kind)) render("ai:全体");
+      else updateTabs();
+      $("topicHint").textContent = okMsg + " 次のAI要約（毎日 19:46頃・21:46頃）から作られます。";
+    } catch (e) {
+      $("topicHint").textContent = "保存に失敗しました：" + e.message;
+    }
+  }
+
   // ===== 言葉で探す =====
   async function runSearch() {
     const query = $("searchWord").value.trim();
@@ -1000,11 +1166,17 @@
       const d = await fetchSearch(query, days);
       S.search = { query: query, days: d.days, order: order, hits: d.hits, from: d.from, to: d.to, daysRead: d.daysRead, fetchedAt: Date.now() };
       lsSet(LS.search, S.search);
+      // 履歴に残す（新しいものを先頭に、20件まで）
+      S.prefs.searchHistory = [query].concat((S.prefs.searchHistory || []).filter(q => q !== query)).slice(0, 20);
+      savePrefs();
+      drawSearchAids();
       render("search", { fromTop: true });
       const people = uniq(d.hits.map(h => h.author));
-      $("searchHint").textContent = d.hits.length
+      const ex = d.expanded || {};
+      const exText = Object.keys(ex).map(w => `「${w}」は「${ex[w].join("」「")}」でも`).join("、");
+      $("searchHint").textContent = (exText ? `呼び名の対応表から、${exText}探しました。` : "") + (d.hits.length
         ? `${d.daysRead}日分の日報から ${d.hits.length}件見つかりました（${people.slice(0, 6).join("、")}${people.length > 6 ? " ほか" : ""}）。下の「再生」で読み上げます。`
-        : `${d.daysRead}日分の日報を探しましたが、見つかりませんでした。言葉を短くするか、日数を増やしてみてください。`;
+        : `${d.daysRead}日分の日報を探しましたが、見つかりませんでした。言葉を短くするか、日数を増やしてみてください。`);
       setStatus("検索OK");
     } catch (e) {
       setStatus("検索失敗");
@@ -1023,6 +1195,7 @@
       await fetchLatest();
       const after = sigOf(S.bundle);
       showMisc();
+      drawSettingsUi();
       if (S.kind !== "person" && S.kind !== "search") {
         if (before !== after || !S.chunks.length) {
           // 再生中は止めない。次に切り替えたときに新しい内容になる
@@ -1043,9 +1216,12 @@
   }
 
   async function executeReport() {
-    if (!confirm("掲示板から今すぐ収集します（1〜2分かかります）。実行しますか？")) return;
-    const btn = $("btnExecute");
-    btn.disabled = true;
+    if (!confirm("定刻を待たずに、掲示板から今すぐ収集します（1〜2分かかります）。\nAI要約は、次の定刻（19:46頃・21:46頃）に作られます。\n実行しますか？")) return;
+    const btns = [$("btnExecute"), $("btnExecuteTop")];
+    btns.forEach(b => { b.disabled = true; });
+    $("btnExecuteTop").textContent = "収集中…";
+    $("collectInfo").textContent = "掲示板から収集しています。1〜2分かかります。このままお待ちください。";
+    setStatus("収集中…");
     try {
       await fetch(APPS_SCRIPT_WEB_URL, {
         method: "POST",
@@ -1059,7 +1235,9 @@
       setStatus("実行エラー");
       alert("実行に失敗しました：" + e.message);
     } finally {
-      btn.disabled = false;
+      btns.forEach(b => { b.disabled = false; });
+      $("btnExecuteTop").textContent = "今すぐ収集";
+      showMisc();
     }
   }
 
@@ -1069,8 +1247,39 @@
     if (tab === "ai") render("ai:" + (S.prefs.aiKey || "全体"));
     else render(tab);
   }));
-  document.querySelectorAll("#aiChips .chip").forEach(c => c.addEventListener("click", () => render("ai:" + c.dataset.ai)));
+  $("aiChips").addEventListener("click", (ev) => {
+    const c = ev.target.closest(".chip");
+    if (c) render("ai:" + c.dataset.ai);
+  });
   $("btnPerson").addEventListener("click", loadPerson);
+  $("btnExecuteTop").addEventListener("click", executeReport);
+  $("btnTopics").addEventListener("click", () => { $("topicBox").hidden = !$("topicBox").hidden; });
+  $("topicAdd").addEventListener("click", () => {
+    const name = $("topicName").value.trim(), desc = $("topicDesc").value.trim();
+    if (!name) { $("topicHint").textContent = "項目の名前を入れてください。"; return; }
+    if (cfg().topics.length >= 10) { $("topicHint").textContent = "登録できるのは10件までです。どれかを削除してから追加してください。"; return; }
+    $("topicName").value = ""; $("topicDesc").value = "";
+    saveTopicsList(cfg().topics.concat([{ name: name, desc: desc }]), `「${name}」を追加しました。`);
+  });
+  $("readAdd").addEventListener("click", () => {
+    const from = $("readFrom").value.trim(), to = $("readTo").value.trim();
+    if (!from) { $("readHint").textContent = "書かれている言葉を入れてください。"; return; }
+    $("readFrom").value = ""; $("readTo").value = "";
+    saveReadingsList(cfg().readings.filter(r => r.from !== from).concat([{ from: from, to: to }]), `「${from}」を登録しました。`);
+  });
+  function drawFollow() {
+    const on = S.prefs.follow !== false;
+    $("btnFollow").textContent = on ? "画面追従：入" : "画面追従：切";
+    $("btnFollow").classList.toggle("off", !on);
+  }
+  $("btnFollow").addEventListener("click", () => {
+    S.prefs.follow = !(S.prefs.follow !== false);
+    savePrefs();
+    drawFollow();
+    // 切にしたら先頭の画面に戻して固定。入にしたら今読んでいる所へ
+    if (S.prefs.follow) markCurrent(true);
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  });
   $("btnSearch").addEventListener("click", runSearch);
   $("searchWord").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); runSearch(); } });
   $("searchOrder").addEventListener("change", () => {
@@ -1130,8 +1339,11 @@
     let kind = S.prefs.kind || "ai:全体";
     if (kind === "person" && !S.person) kind = "ai:全体";
     if (kind === "search" && !S.search) kind = "ai:全体";
+    if (kind.indexOf("ai:追加_") === 0 && !cfg().topics.some(tp => "ai:追加_" + tp.name === kind)) kind = "ai:全体";
     render(kind);
     showMisc();
+    drawSettingsUi();
+    drawFollow();
     keepAwake();
     refresh(false);
     // 氏名の一覧は1日1回取り直す
