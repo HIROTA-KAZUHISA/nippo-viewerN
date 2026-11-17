@@ -101,6 +101,13 @@
     .topbar{display:flex;align-items:center;gap:8px;margin:0 0 10px}
     .topbar button{flex:0 0 auto;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);border-radius:10px;min-height:44px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
     .topbar button:disabled{opacity:.5}
+    .dateWrap{margin:0 0 10px}
+    .dateBar{display:flex;align-items:center;gap:6px}
+    .dateBar button{flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:46px;padding:4px 9px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+    .dateBar button:disabled{opacity:.4}
+    .dateBar button.latest{background:linear-gradient(135deg, rgba(255,170,60,.55), rgba(255,110,90,.45));border-color:rgba(255,255,255,.4)}
+    .dateBar input{flex:1 1 auto;min-width:0;min-height:46px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.28);padding:4px 8px;font-size:16px;color:inherit;color-scheme:dark}
+    .dateBar.past input{border-color:rgba(255,170,60,.9);background:rgba(255,170,60,.16)}
     .topbar span{font-size:12px;color:var(--muted);line-height:1.4;min-width:0;flex:1}
     .topbar .setBtn{background:linear-gradient(135deg, rgba(124,92,255,.55), rgba(36,211,238,.4));border-color:rgba(255,255,255,.35)}
     .settings{border-color:rgba(255,255,255,.32);background:rgba(20,26,52,.92)}
@@ -258,6 +265,16 @@
       <button class="tab" data-tab="search">検索</button>
     </div>
 
+    <div class="dateWrap" id="dateWrap">
+      <div class="dateBar" id="dateBar">
+        <button id="datePrev" aria-label="前の日の日報">◀ 前の日</button>
+        <input type="date" id="datePick" aria-label="聞く日報の日付">
+        <button id="dateNext" aria-label="次の日の日報">次の日 ▶</button>
+        <button id="dateLatest" class="latest" hidden>最新へ</button>
+      </div>
+      <div class="hint" id="dateHint" style="margin-top:4px"></div>
+    </div>
+
     <div class="panel" id="panelAi" hidden>
       <div class="chips" id="aiChips"></div>
       <div class="hint" id="aiHint"></div>
@@ -379,6 +396,9 @@
     search: lsGet(LS.search, null),       // 言葉で探した結果 {query,days,order,hits,from,to,daysRead,fetchedAt}
     prefs: Object.assign({ kind: "ai:全体", aiKey: "全体", rate: 1, personId: "", days: 7, order: "new", listen: null, searchWord: "", searchDays: 10, searchOrder: "old", searchHistory: [], follow: true }, lsGet(LS.prefs, {})),
     pos: lsGet(LS.pos, {}),               // 種類ごとの再生位置 {kind: {sig, idx}}
+    viewDate: "",                         // 過去の日を見ているときの日付（yyyyMMdd）。空なら最新
+    latestMark: null,                     // 最新の収集の目印 {d: 日付フォルダ名, n: 全文版のファイル名}
+    dateBusy: false,
     kind: null,
     sig: "",                              // いま表示している内容の識別（ファイル名など）。変わったら位置を先頭に戻す
     chunks: [],                           // 読み上げの単位 [{t(表示), say(読み), sec(項目番号)}]
@@ -393,6 +413,8 @@
     voice: null
   };
   const savePrefs = () => lsSet(LS.prefs, S.prefs);
+  if (S.bundle && S.bundle.past) S.bundle = null;   // 念のため。端末に残すのは最新だけ
+  if (S.bundle && S.bundle.full) S.latestMark = { d: S.bundle.dateFolderName, n: S.bundle.full.name };
 
   // ===== 中継（Apps Script）とのやり取り =====
   async function apiGet(action) {
@@ -402,9 +424,13 @@
     return d;
   }
 
-  async function fetchLatest() {
-    const d = await apiGet("getLatestReport");
+  // date（yyyyMMdd）を渡すとその日、渡さなければ最新
+  async function fetchLatest(date) {
+    const d = await apiGet("getLatestReport" + (date ? "&date=" + date : ""));
     S.bundle = {
+      dateKey: d.dateKey || "",
+      dates: d.dates || (S.bundle && S.bundle.dates) || [],
+      past: !!date,
       dateFolderName: d.dateFolderName,
       summary: { name: d.summary.name, text: d.summary.text },
       full: { name: d.full.name, text: d.full.text },
@@ -413,7 +439,10 @@
       ai: { prefix: (d.ai && d.ai.prefix) || "", items: (d.ai && d.ai.items) || [], dateFolderName: (d.ai && d.ai.dateFolderName) || d.dateFolderName },
       fetchedAt: Date.now()
     };
-    lsSet(LS.bundle, S.bundle);
+    if (!date) {
+      S.latestMark = { d: S.bundle.dateFolderName, n: S.bundle.full.name };
+      lsSet(LS.bundle, S.bundle);
+    }
     return S.bundle;
   }
 
@@ -457,7 +486,7 @@
   function setCfg(settings) {
     if (!S.bundle) S.bundle = { dateFolderName: "", summary: { name: "", text: "" }, full: { name: "", text: "" }, all: { name: "", text: "" }, ai: { prefix: "", items: [] } };
     S.bundle.settings = settings;
-    lsSet(LS.bundle, S.bundle);
+    if (!S.bundle.past) lsSet(LS.bundle, S.bundle);
   }
   const aiLabel = (key) => AI_LABELS[key] || (key.indexOf("追加_") === 0 ? key.slice(3) : key);
 
@@ -548,7 +577,7 @@
       };
     }
     if (kind === "summary") {
-      return { title: "監視ワードの抽出", meta: `${b.dateFolderName}・${hhmm(b.summary.name)} 収集分`, text: b.summary.text, sig: b.summary.name, empty: "要約版がまだありません。" };
+      return { title: "監視ワードの抽出", meta: `${b.dateFolderName}・${hhmm(b.summary.name)} 収集分`, text: b.summary.text, sig: b.summary.name, empty: b.past ? "この日は、監視ワードの抽出がありません。「全文」タブで聞けます。" : "要約版がまだありません。" };
     }
     const key = kind.slice(3);
     const it = (b.ai.items || []).find(x => x.key === key);
@@ -556,7 +585,7 @@
     const aiDate = b.ai.dateFolderName || b.dateFolderName;
     let meta = `${aiDate}・${aiTime || "-"} 収集分`;
     // AI要約が最新の収集に追いついていないとき（収集の約20分後に作られる）は、そのことを出す
-    if (it && (aiDate !== b.dateFolderName || (fullTime && aiTime && fullTime !== aiTime))) {
+    if (it && !b.past && (aiDate !== b.dateFolderName || (fullTime && aiTime && fullTime !== aiTime))) {
       meta += `（最新の ${aiDate !== b.dateFolderName ? b.dateFolderName + " " : ""}${fullTime} 収集分のAI要約はまだありません）`;
     }
     return {
@@ -564,7 +593,7 @@
       meta: it ? meta : b.dateFolderName,
       text: it ? it.text : "",
       sig: it ? it.name : "",
-      empty: key.indexOf("追加_") === 0
+      empty: b.past ? "この日は、この視点のAI要約がありません。「全文」タブで聞けます。" : key.indexOf("追加_") === 0
         ? "この項目のAI要約はまだありません。登録したあと、次のAI要約（毎日 19:46頃・21:46頃）から作られます。"
         : "この視点のAI要約はまだ作成されていません。毎日 19:46頃と21:46頃に作成されます。"
     };
@@ -828,6 +857,7 @@
     $("panelPerson").hidden = tab !== "person";
     $("panelFull").hidden = tab !== "full";
     $("panelSearch").hidden = tab !== "search";
+    $("dateWrap").hidden = tab === "person" || tab === "search";
     if (tab === "full") { updateListenButton(); $("fullHint").textContent = fullHint(); }
     const items = (S.bundle && S.bundle.ai && S.bundle.ai.items) || [];
     const keys = Object.keys(AI_LABELS).concat(cfg().topics.map(tp => "追加_" + tp.name));
@@ -1022,9 +1052,9 @@
   function showMisc() {
     const wake = !("wakeLock" in navigator) ? "この端末のブラウザでは使えません" : (S.wake ? "有効" : "操作すると有効になります");
     $("miscInfo").textContent = `最後に取得：${fmtDateTime(S.bundle && S.bundle.fetchedAt)}　／　画面を点けたままにする：${wake}`;
-    const b = S.bundle;
-    $("collectInfo").textContent = (b && b.full && b.full.name)
-      ? `最後の収集：${b.dateFolderName} ${hhmm(b.full.name)}（定刻は 19:25頃・21:09頃）`
+    const lm = S.latestMark;
+    $("collectInfo").textContent = (lm && lm.n)
+      ? `最後の収集：${lm.d} ${hhmm(lm.n)}（定刻は 19:25頃・21:09頃）`
       : "定刻は 19:25頃・21:09頃";
   }
 
@@ -1209,7 +1239,73 @@
   }
 
   // ===== 取得（開いたら自動で行う） =====
+  // ===== 日付を選んで過去の日報を聞く =====
+  const knownDates = () => (S.bundle && S.bundle.dates) || [];   // 新しい日が先
+  const isoOf = (k) => k ? `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}` : "";
+  function currentDate() { return S.viewDate || (S.bundle && S.bundle.dateKey) || knownDates()[0] || ""; }
+  function drawDateBar(msg) {
+    const dates = knownDates(), cur = currentDate(), i = dates.indexOf(cur);
+    const pick = $("datePick");
+    pick.value = isoOf(cur);
+    if (dates.length) { pick.max = isoOf(dates[0]); pick.min = isoOf(dates[dates.length - 1]); }
+    pick.disabled = S.dateBusy;
+    $("datePrev").disabled = S.dateBusy || i < 0 || i >= dates.length - 1;
+    $("dateNext").disabled = S.dateBusy || i <= 0;
+    $("dateLatest").hidden = !S.viewDate;
+    $("dateLatest").disabled = S.dateBusy;
+    $("dateBar").classList.toggle("past", !!S.viewDate);
+    $("dateHint").textContent = msg || (S.viewDate
+      ? `過去の日報を表示中：${dayLabel(cur)}。「最新へ」で今日の分に戻ります。`
+      : "日付を選ぶと、その日の日報を聞けます。");
+  }
+  async function loadDate(key) {
+    if (S.dateBusy) return;
+    const dates = knownDates();
+    const latest = !key || key === dates[0];
+    if (!latest && dates.length && dates.indexOf(key) < 0) {
+      drawDateBar(`${dayLabel(key)} の日報はありません（休日など）。`);
+      return;
+    }
+    S.dateBusy = true;
+    drawDateBar(latest ? "最新の日報を読み込んでいます…" : `${dayLabel(key)} の日報を読み込んでいます…`);
+    setStatus("読み込み中…");
+    let msg = "";
+    try {
+      await fetchLatest(latest ? "" : key);
+      S.viewDate = latest ? "" : key;
+      showMisc();
+      drawSettingsUi();
+      let kind = S.kind || S.prefs.kind;
+      if (kind === "person" || kind === "search") kind = "ai:" + (S.prefs.aiKey || "全体");
+      render(kind);
+      setStatus(latest ? "最新を表示中" : `${dayLabel(key)} を表示中`);
+    } catch (e) {
+      msg = "読み込めませんでした：" + e.message;
+      setStatus("取得失敗");
+    } finally {
+      S.dateBusy = false;
+      drawDateBar(msg);
+    }
+  }
+  function stepDate(delta) {   // delta: +1 で前の日（古いほう）、-1 で次の日
+    const dates = knownDates(), i = dates.indexOf(currentDate());
+    if (i < 0) return;
+    const k = dates[i + delta];
+    if (k) loadDate(k);
+  }
+  $("datePick").addEventListener("change", (ev) => {
+    const k = (ev.target.value || "").replace(/-/g, "");
+    if (/^\d{8}$/.test(k)) loadDate(k); else drawDateBar();
+  });
+  $("datePrev").addEventListener("click", () => stepDate(1));
+  $("dateNext").addEventListener("click", () => stepDate(-1));
+  $("dateLatest").addEventListener("click", () => loadDate(""));
+
   async function refresh(manual) {
+    // 過去の日を見ている間は、勝手に最新へ切り替えない（「取り直す」を押したときだけ戻す）
+    if (S.viewDate && !manual) return;
+    const wasPast = !!S.viewDate;
+    S.viewDate = "";
     setStatus("最新の日報を確認中…");
     try {
       const sigOf = (b) => [b.full.name, b.summary.name, (b.all && b.all.name) || "", b.ai.prefix, (b.ai.items || []).length].join("|");
@@ -1218,10 +1314,11 @@
       const after = sigOf(S.bundle);
       showMisc();
       drawSettingsUi();
+      drawDateBar();
       if (S.kind !== "person" && S.kind !== "search") {
-        if (before !== after || !S.chunks.length) {
+        if (before !== after || !S.chunks.length || wasPast) {
           // 再生中は止めない。次に切り替えたときに新しい内容になる
-          if (!S.playing) render(S.kind || S.prefs.kind);
+          if (!S.playing || wasPast) render(S.kind || S.prefs.kind);
           setStatus(S.playing ? "新しい日報あり（再生後に反映）" : "最新を表示中");
         } else {
           updateTabs();
@@ -1252,7 +1349,7 @@
         mode: "no-cors"
       });
       setStatus("収集を実行しました");
-      await refresh(false);
+      await refresh(true);
     } catch (e) {
       setStatus("実行エラー");
       alert("実行に失敗しました：" + e.message);
@@ -1376,6 +1473,7 @@
     showMisc();
     drawSettingsUi();
     drawFollow();
+    drawDateBar();
     keepAwake();
     refresh(false);
     // 氏名の一覧は1日1回取り直す
